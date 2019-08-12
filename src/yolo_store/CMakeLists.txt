@@ -22,7 +22,6 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   image_transport
   message_filters
-  tmc_darknet
   tmc_vision_msgs
 )
 #catkin_python_setup()
@@ -43,7 +42,6 @@ catkin_package(
   sensor_msgs
   std_msgs
   tf2_ros
-  tmc_darknet
   tmc_vision_msgs
 )
 
