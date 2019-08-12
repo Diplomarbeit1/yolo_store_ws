@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
   visualization_msgs
-  darknet_ros_msgs
   pcl_conversions
   pcl_ros
   cv_bridge
