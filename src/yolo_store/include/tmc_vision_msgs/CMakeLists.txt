@@ -3,21 +3,17 @@ project(tmc_vision_msgs)
 
 find_package(catkin REQUIRED COMPONENTS
   message_generation
-  std_msgs
-  geometry_msgs
-tf2_msgs)
+  std_msgs)
 
 add_message_files(
   FILES
   Detection.msg
   DetectionArray.msg
   Label.msg
-  yolo_store_msg.msg
-  yolo_store_msg_Array.msg
 )
 
 generate_messages(
-  DEPENDENCIES std_msgs geometry_msgs tf2_msgs
+  DEPENDENCIES std_msgs
 )
 
 catkin_package(
