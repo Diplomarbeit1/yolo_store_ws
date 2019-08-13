@@ -16,7 +16,6 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   pcl_ros
   cv_bridge
-  mongodb_store
   sensor_msgs
   std_msgs
   tf2_ros
