@@ -1,2 +1,9 @@
-string id
-Detection detections
+Header header
+uint32 id
+tmc_vision_msgs/Label label
+float64 x
+float64 y
+float64 z
+float64 lx
+float64 ly
+float64 lz

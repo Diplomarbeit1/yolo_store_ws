@@ -23,18 +23,122 @@ using namespace tmc_vision_msgs;
 class PointCloudToImage
 {
 public:
+  
+  //######## check if valid if not...
+  std::pair<int,int> get_valid_point(pcl::PointCloud<pcl::PointXYZ>::Ptr cld, int x, int y) 
+  {
+    pair<int,int> p=make_pair(x,y);
+    if(isnan(cld->at(x,y).x)||isnan(cld->at(x,y).y)||isnan(cld->at(x,y).z))  return valid_point_(cld,"right",--x,++y,2,0); else return p;
+  }
+  //######## ... get next valid point
+  std::pair<int,int> valid_point_(pcl::PointCloud<pcl::PointXYZ>::Ptr cld, string direction, int x, int y, int dist, int cnt)
+  {
+    int b=0;                                                //minimum distance to the edges of the image
+    int d=5;                                                //distance from the center point in pixel
+    std::pair<int,int> p ;                                  //vraiable that is returned at the end
+    int not_valid;                                          //variable to check if point is valid 
+
+    //######maintenance 
+    int m=0;                                                //ignore nans and check the limits of the algorythm
+    int print=0;                                            //print x y z of pcl
+    if(m) cout<<(x)<<" "<<(y)<<" ";                         //print distance --set x/y start value to 100!
+    if(print&&m) cout<<"x:"<<cld->at(x,y).x<<" y:"<<cld->at(x,y).y<<"z:"<<cld->at(x,y).z;
+    if(m) cout<<"\n";
+    //######maintenance 
+    
+    if(x<=b||x>=(cld->width-b)||y<=b||y>=(cld->height-b))   //too near to the edge
+    {
+      cout<<"out of bounds"<<"\n";
+      return make_pair(0,0);
+    }
+    if(dist>(d*2))//times 2 because for every increase of the distance 2 more pixels are added per direction => so actually in 4 pixels in whole
+    {
+      cout<<"too far away"<<"\n";
+      return make_pair(0,0);
+    }
+    if(isnan(cld->at(x,y).x)||isnan(cld->at(x,y).y)||isnan(cld->at(x,y).z)) not_valid=1; else not_valid=m;
+    //not_valid=1;// no limits
+    if(direction=="right")
+    {
+      if(not_valid)
+      {
+        if(cnt<dist) 
+        {
+          p = valid_point_(cld,"right",++x,y,dist,++cnt);   //moves 1 to the right and increases cnt
+        } 
+        else valid_point_(cld,"down",x,--y,dist,1);         //already moves 1 down therefore cnt=1
+      }
+      else p = make_pair(x, y); 
+    }
+    else if(direction=="down")
+    {
+      if(not_valid)
+      {
+        if(cnt<dist) 
+        {
+          p = valid_point_(cld,"down",x,--y,dist,++cnt);
+        } 
+        else valid_point_(cld,"left",--x,y,dist,1);
+      }
+      else p = make_pair(x, y); 
+    }
+    else if(direction=="left")
+    {
+      if(not_valid)
+      {
+        if(cnt<dist) 
+        {
+          p = valid_point_(cld,"left",--x,y,dist,++cnt);
+        } 
+        else valid_point_(cld,"up",x,++y,dist,1);
+      }
+      else p = make_pair(x, y);
+    }
+    else if(direction=="up")
+    {
+      if(not_valid)
+      {
+        if(cnt<(dist-1))
+        {
+          p= valid_point_(cld,"up",x,++y,dist,++cnt);
+        } 
+        else 
+        {
+          dist=dist+2;
+          y++;
+          cout<<"\n\nrestart";
+          valid_point_(cld,"right",--x,++y,dist,0);
+        }
+      }
+      else p = make_pair(x, y);
+    }
+    else return p;                                          //this case can/should never occur --spelling error 
+    return p;                                               //return the correct value of p
+  }
+
+//######transform pcl for yolo and send points to mongodb
   void cloud_cb (const sensor_msgs::PointCloud2::ConstPtr& cloud)
   {
+    int timer_=0
+    //###########timer###########
+    if(timer_){
     ros::WallTime begin_, end_;
     begin_ = ros::WallTime::now();
     cout<<"\n\n Starting timer\n";
+    }//###########timer###########
+
+    //get pcl
     //nh_.subscribe (tf_sub_topic, 1,&PointCloudToImage::tf_cb, this);
     tf2_msgs::TFMessage tf_saved = *ros::topic::waitForMessage<tf2_msgs::TFMessage>(tf_sub_topic);
+    
+    //###########timer###########
+     if(timer_){
     end_ =  ros::WallTime::now();
-   
     double elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
     cout<<"tf after "<<elapsed_secs<< " seconds\n";
-    //cout<<"Listening for incoming pcl \n";
+    }//###########timer###########
+
+    //convert pcl to image
     if ((cloud->width * cloud->height) == 0)
       return; //return if the cloud is not dense!
     try
@@ -43,62 +147,82 @@ public:
     }
     catch (std::runtime_error e)
     {
-      ROS_ERROR_STREAM("Error in converting cloud to image message: \n"
-                        << e.what());
+      ROS_ERROR_STREAM("Error in converting cloud to image message: \n" << e.what());
     }
-
+    //###########timer###########
+     if(timer_){
     end_ =  ros::WallTime::now();
     elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
     cout<<"pcl after "<<elapsed_secs<< " seconds\n";
+    }//###########timer###########
 
-    //std::cout<<"\n"<< "publish to yolo \n";
-    yolo_pub_.publish (yolo_image); //publish our cloud image
+    //publish image to yolo
+    yolo_pub_.publish (yolo_image);
     pcl_pub_.publish(cloud);
+
+    //###########timer###########
+    if(timer_){
     end_ =  ros::WallTime::now();
     elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
     cout<<"pub yolo and pcl after "<<elapsed_secs<< " seconds\n";
-    
+    }//###########timer###########
+
+    //recieve bounding box and name from yolo
     DetectionArray yolo_sub_detections = *ros::topic::waitForMessage<DetectionArray>(yolo_sub_topic_);
+    
+    //###########timer###########
+    if(timer_){
     end_ =  ros::WallTime::now();
     elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
     if(yolo_sub_detections.detections.size()>0) cout<<"recieve "<<yolo_sub_detections.detections.size()<<" Objects after "<<elapsed_secs<< " seconds\n";
-    
-    //cout<<"transforming yolo_msg to mongo_msg \n";
+    }//###########timer###########
+
+    //transforming yolo_msg to mongo_msg;
     yolo_store_msg_Array mongo_detections;
-    mongo_detections.header = yolo_sub_detections.header;
+    mongo_detections.header = cloud.header;
     mongo_detections.tf = tf_saved;
     mongo_detections.msgs.resize(yolo_sub_detections.detections.size());
+
+    //###########timer###########
+    if(timer_){
     end_ =  ros::WallTime::now();
     elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
     if(yolo_sub_detections.detections.size()>0) cout<<"transforming loop starts after "<<elapsed_secs<< " seconds\n";
-
+    }//###########timer###########
+    
+    //transfer the indvidual entries in the array
     for (int i=0;i<yolo_sub_detections.detections.size();i++)
     {
           mongo_detections.msgs[i].detections=yolo_sub_detections.detections[i];
     }
 
+    //###########timer###########
+    if(timer_){
     end_ =  ros::WallTime::now();
     elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
     if(yolo_sub_detections.detections.size()>0) cout<<"transform to mongo_msg for loop after "<<elapsed_secs<< " seconds\n";
+    }//###########timer###########
 
-    cout<<"publish to mongo \n";
+    //publish to mongo
     mongo_pub_.publish (mongo_detections);
 
+    //###########timer###########
+    if(timer_){
     end_ =  ros::WallTime::now();
     elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
     if(yolo_sub_detections.detections.size()>0) cout<<"pub to mongo after "<<elapsed_secs<< " seconds\n";
+    }//###########timer###########
 
     cout<<"finsihed and resting now \n";
   }
   PointCloudToImage () : 
-	//cloud_topic_("/head_xtion/depth_registered/points"),
-	cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
+	cloud_topic_("/head_xtion/depth_registered/points"),
+	//cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
 	image_topic_("/yolo_store/yolo_input_image"),
   mongo_topic_("/yolo_store/msg_mongo"),
   pcl_topic_("/yolo_store/pcl_mongo"),
   yolo_sub_topic_("/yolo2_node/detections"),
   tf_sub_topic("tf")
-
   {
     sub_ = nh_.subscribe (cloud_topic_, 1, &PointCloudToImage::cloud_cb, this);
     yolo_pub_ = nh_.advertise<sensor_msgs::Image> (image_topic_, 1);
