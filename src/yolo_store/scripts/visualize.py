@@ -44,37 +44,39 @@ id = 0
 if __name__ == '__main__':
     rospy.init_node('visualize', anonymous=True)
     topic = 'visualization_marker_array'
-    publisher = rospy.Publisher(topic, MarkerArray,queue_size=1)
+    publisher_mark = rospy.Publisher(topic, MarkerArray,queue_size=1)
+    publisher_id = rospy.Publisher(topic, MarkerArray,queue_size=1)
     r = rospy.Rate(100)
     r_max_id = rospy.Rate(0.5)
     msg_store = MessageStoreProxy()
     while ok():
         print("visualizing message  {} ",.format(str(id))
         mongo_array = msg_store.query(yolo_store_msg_Array._type)#  sort_query = [], projection_query = {}, limit=0)
-        if id <= mongo_array.__len__():
+        max_id = mongo_array.__len__()
+        publisher_id.publish(max_id)
+        if id <= max_id & max_id > 0:
             current_array = mongo_array[id]
             for i in current_array:
                 marker = Marker()
                 marker.header.frame_id = "/map"
                 marker.type = marker.CUBE
                 marker.action = marker.ADD
-                s=0.3
-                marker.scale.x = current_array[i].yolo_store_msg
-                marker.scale.y = current_array[i].yolo_store_msg
-                marker.scale.z = current_array[i].yolo_store_msg
-                marker.color.a = 0.6
+                marker.scale.x = current_array[i].yolo_store_msg[i].lx
+                marker.scale.y = current_array[i].yolo_store_msg[i].ly
+                marker.scale.z = current_array[i].yolo_store_msg[i].lz
+                marker.color.a = 1.0
                 marker.color.r = 1.0
                 marker.color.g = 0.0
                 marker.color.b = 0.0
                 marker.pose.orientation.w = 1.0
-                marker.pose.position.x = x
-                marker.pose.position.y = y
-                marker.pose.position.z = z 
+                marker.pose.position.x = current_array[i].yolo_store_msg[i].lx
+                marker.pose.position.y = current_array[i].yolo_store_msg[i].ly
+                marker.pose.position.z = current_array[i].yolo_store_msg[i].lz 
                 markerArray.markers.append(marker)
                 for m in markerArray.markers:
                     m.id = id
                     id += 1
-            publisher.publish(markerArray)
+            publisher_mark.publish(markerArray)
             r.sleep()
 
         else: r_max_id.sleep()
