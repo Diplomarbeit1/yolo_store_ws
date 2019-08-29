@@ -20,6 +20,8 @@
 
 using namespace std;
 using namespace tmc_vision_msgs;
+//static int index;
+
 class PointCloudToImage
 {
 public:
@@ -119,11 +121,12 @@ public:
 //######transform pcl for yolo and send points to mongodb
   void cloud_cb (const sensor_msgs::PointCloud2::ConstPtr& cloud)
   {
-    int timer_=0
-    //###########timer###########
-    if(timer_){
+    int timer_=0;
     ros::WallTime begin_, end_;
+    double elapsed_secs;
+    //###########timer###########
     begin_ = ros::WallTime::now();
+    if(timer_){
     cout<<"\n\n Starting timer\n";
     }//###########timer###########
 
@@ -179,22 +182,23 @@ public:
 
     //transforming yolo_msg to mongo_msg;
     yolo_store_msg_Array mongo_detections;
-    mongo_detections.header = cloud.header;
+    //mongo_detections.header = cloud.header;
     mongo_detections.tf = tf_saved;
     mongo_detections.msgs.resize(yolo_sub_detections.detections.size());
-
-    //###########timer###########
-    if(timer_){
-    end_ =  ros::WallTime::now();
-    elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
-    if(yolo_sub_detections.detections.size()>0) cout<<"transforming loop starts after "<<elapsed_secs<< " seconds\n";
-    }//###########timer###########
-    
-    //transfer the indvidual entries in the array
+     //transfer the indvidual entries in the array
     for (int i=0;i<yolo_sub_detections.detections.size();i++)
     {
-          mongo_detections.msgs[i].detections=yolo_sub_detections.detections[i];
+         // mongo_detections.msgs[i].detections=yolo_sub_detections.detections[i];
     }
+
+    // //###########timer###########
+    // if(timer_){
+    // end_ =  ros::WallTime::now();
+    // elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
+    // if(yolo_sub_detections.detections.size()>0) cout<<"transforming loop starts after "<<elapsed_secs<< " seconds\n";
+    // }//###########timer###########
+    
+   
 
     //###########timer###########
     if(timer_){
@@ -215,6 +219,7 @@ public:
 
     cout<<"finsihed and resting now \n";
   }
+  
   PointCloudToImage () : 
 	cloud_topic_("/head_xtion/depth_registered/points"),
 	//cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),

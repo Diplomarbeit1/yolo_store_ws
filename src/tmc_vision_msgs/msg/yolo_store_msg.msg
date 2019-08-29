@@ -1,5 +1,5 @@
 Header header
-uint32 id
+uint32 element_id
 tmc_vision_msgs/Label label
 float64 x
 float64 y
