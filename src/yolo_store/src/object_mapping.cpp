@@ -26,7 +26,33 @@ static int current_ind;
 class PointCloudToImage
 {
 public:
+  yolo_store_msg get_yolo_detection(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,tmc_vision_msgs::Detection det) //,tf2_msgs::TFMessage tf_to_map)
+  {
+    yolo_store_msg msg;
+    msg.label = det.label;
+    int height4 = det.height/4;
+    float dividerh = float(height4/det.height);
+    int width4 = det.width/4;
+    float dividerw = float(width4/det.width);
+
+    int cx = det.x + int(det.height/2);
+    int cy = det.y + int(det.height/2);
+    std::pair<int,int> adress = get_valid_point(cloud,cx,cy);
+    int x = adress.first;
+    int y = adress.second;
+    msg.x = cloud->at(x,y).x;
+    msg.y = cloud->at(x,y).y;
+    msg.z = cloud->at(x,y).z;
+
+    int fact = 4;
+    std::pair<int,int> adress_right_top = get_valid_point(cloud,cx + int(det.height/fact),cy + int(det.height/fact));
+    std::pair<int,int> adress_right_bottom = get_valid_point(cloud,cx + int(det.height/fact),cy - int(det.height/fact));
+    std::pair<int,int> adress_left_top = get_valid_point(cloud,cx - int(det.height/fact),cy + int(det.height/fact));
+    std::pair<int,int> adress_left_bottom = get_valid_point(cloud,cx - int(det.height/fact),cy - int(det.height/fact));
+  }
   
+  
+     
   //######## check if valid if not...
   std::pair<int,int> get_valid_point(pcl::PointCloud<pcl::PointXYZ>::Ptr cld, int x, int y) 
   {
@@ -183,12 +209,18 @@ public:
     yolo_store_msg_Array mongo_detections;
     mongo_detections.header = cloud->header;
     mongo_detections.msgs.resize(yolo_sub_detections.detections.size());
-     //transfer the indvidual entries in the array
+
+    //convert msg pcl to xyz pcl
+    pcl::PCLPointCloud2 pcl_pc2;
+    pcl_conversions::toPCL(*cloud,pcl_pc2);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
+
     for (int i=0;i<yolo_sub_detections.detections.size();i++)
     {
-         //yolo_sub_detections[i];
-         
-         // mongo_detections.msgs[i].detections=yolo_sub_detections.detections[i];
+
+      mongo_detections.msgs[i] = get_yolo_detection(temp_cloud,yolo_sub_detections.detections[i]);
+
     }
 
     // //###########timer###########
@@ -214,6 +246,7 @@ public:
     }//###########timer###########
 
     cout<<"finsihed and resting now \n";
+
   }
   
   PointCloudToImage () : 
