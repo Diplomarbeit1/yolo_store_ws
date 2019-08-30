@@ -15,12 +15,13 @@
 #include <tf2_msgs/TFMessage.h>
 #include <tmc_vision_msgs/yolo_store_msg_Array.h>
 #include <tmc_vision_msgs/yolo_store_msg.h>
+#include <std_msgs/Int32.h>
 
 // #include <tmc_vision_msgs/Detection>
 
 using namespace std;
 using namespace tmc_vision_msgs;
-//static int index;
+static int current_ind;
 
 class PointCloudToImage
 {
@@ -118,27 +119,31 @@ public:
     return p;                                               //return the correct value of p
   }
 
-//######transform pcl for yolo and send points to mongodb
+//######transform pcl for yolo and send points to mongodb#######################################################################
   void cloud_cb (const sensor_msgs::PointCloud2::ConstPtr& cloud)
   {
+    current_ind = (*ros::topic::waitForMessage<std_msgs::Int32>(index_topic_,ros::Duration(2))).data;
     int timer_=0;
-    ros::WallTime begin_, end_;
-    double elapsed_secs;
+    ros::WallTime begin_;
     //###########timer###########
     begin_ = ros::WallTime::now();
     if(timer_){
     cout<<"\n\n Starting timer\n";
     }//###########timer###########
 
-    //get pcl
-    //nh_.subscribe (tf_sub_topic, 1,&PointCloudToImage::tf_cb, this);
-    tf2_msgs::TFMessage tf_saved = *ros::topic::waitForMessage<tf2_msgs::TFMessage>(tf_sub_topic);
-    
+    current_ind = (*ros::topic::waitForMessage<std_msgs::Int32>(index_topic_,ros::Duration(2))).data;
     //###########timer###########
      if(timer_){
-    end_ =  ros::WallTime::now();
-    double elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
-    cout<<"tf after "<<elapsed_secs<< " seconds\n";
+    cout<<"tf after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
+    }//###########timer###########
+
+    //nh_.subscribe (tf_sub_topic, 1,&PointCloudToImage::tf_cb, this);
+    tf2_msgs::TFMessage tf_saved = *ros::topic::waitForMessage<tf2_msgs::TFMessage>(tf_sub_topic,ros::Duration(2));
+    //int current_max_id = *ros::topic::waitForMessage<int32>(index_topic_);
+    //cout<<current_max_id;
+    //###########timer###########
+     if(timer_){
+    cout<<"tf after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
 
     //convert pcl to image
@@ -154,9 +159,7 @@ public:
     }
     //###########timer###########
      if(timer_){
-    end_ =  ros::WallTime::now();
-    elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
-    cout<<"pcl after "<<elapsed_secs<< " seconds\n";
+    cout<<"pcl after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
 
     //publish image to yolo
@@ -165,29 +168,26 @@ public:
 
     //###########timer###########
     if(timer_){
-    end_ =  ros::WallTime::now();
-    elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
-    cout<<"pub yolo and pcl after "<<elapsed_secs<< " seconds\n";
+    cout<<"pub yolo and pcl after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
 
     //recieve bounding box and name from yolo
-    DetectionArray yolo_sub_detections = *ros::topic::waitForMessage<DetectionArray>(yolo_sub_topic_);
+    DetectionArray yolo_sub_detections = *ros::topic::waitForMessage<DetectionArray>(yolo_sub_topic_,ros::Duration(2));
     
     //###########timer###########
     if(timer_){
-    end_ =  ros::WallTime::now();
-    elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
-    if(yolo_sub_detections.detections.size()>0) cout<<"recieve "<<yolo_sub_detections.detections.size()<<" Objects after "<<elapsed_secs<< " seconds\n";
+    if(yolo_sub_detections.detections.size()>0) cout<<"recieve "<<yolo_sub_detections.detections.size()<<" Objects after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
 
     //transforming yolo_msg to mongo_msg;
     yolo_store_msg_Array mongo_detections;
-    //mongo_detections.header = cloud.header;
-    mongo_detections.tf = tf_saved;
+    mongo_detections.header = cloud->header;
     mongo_detections.msgs.resize(yolo_sub_detections.detections.size());
      //transfer the indvidual entries in the array
     for (int i=0;i<yolo_sub_detections.detections.size();i++)
     {
+         //yolo_sub_detections[i];
+         
          // mongo_detections.msgs[i].detections=yolo_sub_detections.detections[i];
     }
 
@@ -202,9 +202,7 @@ public:
 
     //###########timer###########
     if(timer_){
-    end_ =  ros::WallTime::now();
-    elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
-    if(yolo_sub_detections.detections.size()>0) cout<<"transform to mongo_msg for loop after "<<elapsed_secs<< " seconds\n";
+    if(yolo_sub_detections.detections.size()>0) cout<<"transform to mongo_msg for loop after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
 
     //publish to mongo
@@ -212,9 +210,7 @@ public:
 
     //###########timer###########
     if(timer_){
-    end_ =  ros::WallTime::now();
-    elapsed_secs = (end_ - begin_).toNSec() * 1e-9;
-    if(yolo_sub_detections.detections.size()>0) cout<<"pub to mongo after "<<elapsed_secs<< " seconds\n";
+    if(yolo_sub_detections.detections.size()>0) cout<<"pub to mongo after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
 
     cout<<"finsihed and resting now \n";
@@ -225,6 +221,7 @@ public:
 	//cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
 	image_topic_("/yolo_store/yolo_input_image"),
   mongo_topic_("/yolo_store/msg_mongo"),
+  index_topic_("/yolo_store/max_index"),
   pcl_topic_("/yolo_store/pcl_mongo"),
   yolo_sub_topic_("/yolo2_node/detections"),
   tf_sub_topic("tf")
@@ -241,6 +238,8 @@ public:
     std::string r_pt = nh_.resolveName (pcl_topic_);
     std::string r_mt = nh_.resolveName (mongo_topic_);
     std::string r_tf = nh_.resolveName (tf_sub_topic);
+    std::string r_id = nh_.resolveName (index_topic_);
+    
 
     ROS_INFO_STREAM("Listening for incoming tf on topic " << r_tf );
     ROS_INFO_STREAM("Listening for incoming data on topic " << r_ct );
@@ -260,6 +259,7 @@ private:
   std::string pcl_topic_;
   std::string yolo_sub_topic_;
   std::string tf_sub_topic;
+  std::string index_topic_;
   ros::Subscriber sub_; 
   ros::Publisher yolo_pub_; 
   ros::Publisher mongo_pub_;
@@ -272,15 +272,14 @@ main (int argc, char **argv)
 {
   ros::init (argc, argv, "object_mapping");
   PointCloudToImage pci; //this loads up the node
-  ros::spin (); //where she stops nobody knows
-  /*
-  //Loop
-   while (ros::ok()) {
-        cout<<"starting transform"<<endl;
-        PointCloudToImage pci; //this loads up the node
-	//ros::Rate rate(1);
-        //rate.sleep();
-   }
-*/	
+  ros::spin (); 
+
+//   //Loop
+//    while (ros::ok()) {
+//         cout<<"starting transform"<<endl;
+//         PointCloudToImage pci; //this loads up the node
+// 	//ros::Rate rate(1);
+//         //rate.sleep();
+//    }
   return 0;
 }

@@ -1,4 +1,3 @@
 Header header
-uint32 message_id
-tf2_msgs/TFMessage tf
+int32 message_id
 yolo_store_msg[] msgs
