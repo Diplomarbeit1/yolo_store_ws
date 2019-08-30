@@ -45,10 +45,18 @@ public:
     msg.z = cloud->at(x,y).z;
 
     int fact = 4;
-    std::pair<int,int> adress_right_top = get_valid_point(cloud,cx + int(det.height/fact),cy + int(det.height/fact));
-    std::pair<int,int> adress_right_bottom = get_valid_point(cloud,cx + int(det.height/fact),cy - int(det.height/fact));
-    std::pair<int,int> adress_left_top = get_valid_point(cloud,cx - int(det.height/fact),cy + int(det.height/fact));
-    std::pair<int,int> adress_left_bottom = get_valid_point(cloud,cx - int(det.height/fact),cy - int(det.height/fact));
+    std::pair<int,int> adress_right = get_valid_point(cloud, cx + int(det.height/fact), cy);
+    std::pair<int,int> adress_left = get_valid_point(cloud, cx - int(det.height/fact), cy);
+    std::pair<int,int> adress_top = get_valid_point(cloud, cx, cy + int(det.height/fact));
+    std::pair<int,int> adress_bottom = get_valid_point(cloud, cx, cy - int(det.height/fact));
+    int xr = adress_right.first , yr = adress_right.second;
+    int xl = adress_left.first , yl = adress_left.second;
+    int xt = adress_top.first , yt = adress_top.second;
+    int xb = adress_bottom.first , yb = adress_bottom.second;
+
+    
+
+
   }
   
   
