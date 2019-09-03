@@ -55,9 +55,18 @@ public:
     msg.label = det.label;
     //msg.header = cloud->header;
 
-    int cx = det.x + int(det.height/2);
-    int cy = det.y + int(det.height/2);
+    int cx = round(det.x);// + int(det.height/2);
+    int cy = round(det.y);// + int(det.height/2);
     std::pair<int,int> adress = get_valid_point(cloud,cx,cy);
+
+    if(!adress.first||!adress.second)
+    {
+
+      msg.x = 0; 
+      msg.y = 0; 
+      msg.z = 0; 
+      return msg;
+    }
     int x = adress.first;
     int y = adress.second;
 
@@ -69,11 +78,15 @@ public:
     float divw = float(det.width)/float(width4);
 
     //
+    cout<<"right";
     std::pair<int,int> adress_right = get_valid_point(cloud, cx + int(det.height/fact), cy);
+    cout<<"left";
     std::pair<int,int> adress_left = get_valid_point(cloud, cx - int(det.height/fact), cy);
+    cout<<"top";
     std::pair<int,int> adress_top = get_valid_point(cloud, cx, cy + int(det.height/fact));
+    cout<<"bottom";
     std::pair<int,int> adress_bottom = get_valid_point(cloud, cx, cy - int(det.height/fact));
-    
+    cout<<"\n variables gathered \n";
     //give the values to the coordinates
     int xr = adress_right.first , yr = adress_right.second;
     int xl = adress_left.first , yl = adress_left.second;
@@ -82,6 +95,7 @@ public:
 
     if(!xr||!yr||!xl||!yl||!xt||!yt||!xb||!yb) 
     {
+      cout<<"one variable is 0 in bounding box error detected";
       msg.x = 0; 
       msg.y = 0; 
       msg.z = 0; 
@@ -112,30 +126,37 @@ public:
   //######## check if valid if not...
   std::pair<int,int> get_valid_point(pcl::PointCloud<pcl::PointXYZ>::Ptr cld, int x, int y) 
   {
+    int b=10;
+    int print = 0;
+    if(print) cout<<"\n get valid point x: "<<(x)<<" y:"<<(y)<<" \n";                         //print distance --set x/y start value to 100!
     pair<int,int> p=make_pair(x,y);
+    pair<int,int> err=make_pair(0,0);
+    if(x<b||x>(640-b)||y<b||y>(480-b)) return err; 
+    else cld->at(x,y);
     if(isnan(cld->at(x,y).x)||isnan(cld->at(x,y).y)||isnan(cld->at(x,y).z))  return valid_point_(cld,"right",--x,++y,2,0); else return p;
   }
   //######## ... get next valid point
   std::pair<int,int> valid_point_(pcl::PointCloud<pcl::PointXYZ>::Ptr cld, string direction, int x, int y, int dist, int cnt)
   {
-    int b=0;                                                //minimum distance to the edges of the image
-    int d=5;                                                //distance from the center point in pixel
+    int b=10;                                               //minimum distance to the edges of the image
+    int d=3;                                                //distance from the center point in pixel
     std::pair<int,int> p ;                                  //vraiable that is returned at the end
     int not_valid;                                          //variable to check if point is valid 
 
     //######maintenance 
     int m=0;                                                //ignore nans and check the limits of the algorythm
-    int print=0;                                            //print x y z of pcl
-    if(m) cout<<(x)<<" "<<(y)<<" ";                         //print distance --set x/y start value to 100!
-    if(print&&m) cout<<"x:"<<cld->at(x,y).x<<" y:"<<cld->at(x,y).y<<"z:"<<cld->at(x,y).z;
-    if(m) cout<<"\n";
+    int print=1;                                            //print x y z of pcl
+    if(print) cout<<"\n valid point x:"<<(x)<<" y:"<<(y)<<" \n";                         //print distance --set x/y start value to 100!
+    if(print) cout<<"x:"<<cld->at(x,y).x<<" y:"<<cld->at(x,y).y<<"z:"<<cld->at(x,y).z;
+    if(print) cout<<"\n";
     //######maintenance 
     
-    if(x<=b||x>=(cld->width-b)||y<=b||y>=(cld->height-b))   //too near to the edge
+    if(y<b||y>(480-b)||x<b||x>(640-b))   //too near to the edge
     {
       cout<<"out of bounds"<<"\n";
       return make_pair(0,0);
     }
+    else cld->at(x,y);
     if(dist>(d*2))//times 2 because for every increase of the distance 2 more pixels are added per direction => so actually in 4 pixels in whole
     {
       cout<<"too far away"<<"\n";
@@ -282,8 +303,22 @@ public:
     //  transform points and save to mongo_message
     for (int i=0;i<yolo_sub_detections.detections.size();i++)
     {
+      cout<<"\n start storing ";
+      cout<<yolo_sub_detections.detections[i].label.name;
+      cout<<"\n input x:"<<yolo_sub_detections.detections[i].x;
+      cout<<"\n input y:"<<yolo_sub_detections.detections[i].y;
+      cout<<"\n input w:"<<yolo_sub_detections.detections[i].width;
+      cout<<"\n input h:"<<yolo_sub_detections.detections[i].height<<"\n";
+      
+      
       mongo_detections.msgs[i] = get_yolo_detection(temp_cloud,yolo_sub_detections.detections[i],tf_cam2world);
-      if(mongo_detections.msgs[i].x == 0 || mongo_detections.msgs[i].y == 0 ||mongo_detections.msgs[i].z == 0) cout<<"object"<<yolo_sub_detections.detections[i].label<<"out of bounds";
+      if(mongo_detections.msgs[i].x == 0 || mongo_detections.msgs[i].y == 0 ||mongo_detections.msgs[i].z == 0) 
+      {
+        cout<<"\n error in callback: object: "<<yolo_sub_detections.detections[i].label.name<<" will not be stored \n";
+        cout<<"\n  x:"<<yolo_sub_detections.detections[i].x;
+        cout<<"\n  y:"<<yolo_sub_detections.detections[i].y<<"\n";
+      }
+      else cout<<"SUCESS in callback: object: "<<yolo_sub_detections.detections[i].label.name<<" will be stored \n";
     }
 
 
