@@ -19,34 +19,36 @@ from tmc_vision_msgs.msg import yolo_store_msg_Array, yolo_store_msg
 from std_msgs.msg import Header , String
 from std_msgs.msg import Int32
 
+from visualization_msgs.msg import Marker
+from geometry_msgs.msg import Quaternion, Pose, Point, Vector3
+from std_msgs.msg import Header, ColorRGBA
 
-topic = 'visualization_marker_array'
-publisher = rospy.Publisher(topic, MarkerArray,queue_size=1)
 
-def callback(data):
-    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
+# topic = 'visualization_marker_array'
+# publisher = rospy.Publisher(topic, MarkerArray,queue_size=1)
 
-    
 def visualize():
     rospy.init_node('listener', anonymous=True)
-    rospy.Subscriber("chatter", String, callback)
     rospy.spin()
 
 
 # rospy.init_node('register')
 
 markerArray = MarkerArray()
-
+markerArray_text = MarkerArray()
 count = 0.0
 cnt = 0.0
-MARKERS_MAX = 30
+#MARKERS_MAX = 1000
 id = 0
+
 
 if __name__ == '__main__':
     rospy.init_node('visualize', anonymous=True)
     topic_mark = '/yolo_store/marker_array'
+    topic_text = '/yolo_store/marker_text_array'
     topic_ind = '/yolo_store/max_index'
     publisher_mark = rospy.Publisher(topic_mark, MarkerArray,queue_size=1)
+    publisher_text = rospy.Publisher(topic_text, MarkerArray,queue_size=1)
     publisher_id = rospy.Publisher(topic_ind, Int32 ,queue_size=1)
     r = rospy.Rate(100)
     r_max_id = rospy.Rate(0.1)
@@ -73,17 +75,17 @@ if __name__ == '__main__':
             i=0
             for i in range(current_array.msgs.__len__()):
                 if(i<=0): 
-                    ad=0.1 
+                    ad=0.01 
                 else: 
                     ad=0
                 z=1
                 marker = Marker()
-                marker.header.frame_id = "/map"
+                marker.header.frame_id = "map"
                 marker.type = marker.CUBE
                 marker.action = marker.ADD
                 #print(int(round(i/z))*10)
                 if(current_array.msgs[int(round(i/z))*z].lx==0):
-                    ad=0.05
+                    ad=0.01
                 marker.scale.x = current_array.msgs[i].lx
                 marker.scale.y = current_array.msgs[i].ly
                 marker.scale.z = current_array.msgs[i].lz
@@ -95,12 +97,40 @@ if __name__ == '__main__':
                 marker.pose.position.x = current_array.msgs[i].x+ad
                 marker.pose.position.y = current_array.msgs[i].y+ad
                 marker.pose.position.z = current_array.msgs[i].z+ad
+                print("x:",marker.pose.position.x)
+                print("y:",marker.pose.position.y)
+                print("z:",marker.pose.position.z)
+                print("lx:",marker.scale.x)
+                print("ly:",marker.scale.y)
+                print("lz:",marker.scale.z)
+                #print("\n x:",marker.scale.x)
+                marker_text = Marker(
+                type=Marker.TEXT_VIEW_FACING,
+                id=0,
+                pose=Pose(Point(marker.pose.position.x,
+                marker.pose.position.y,
+                marker.pose.position.z + marker.scale.z + 0.03),
+                Quaternion(0, 0, 0, 1)),
+                scale=Vector3(0.06, 0.06, 0.06),
+                header=Header(frame_id="map"),
+                color=ColorRGBA(0.0, 1.0, 0.0, 0.8),
+                text=current_array.msgs[i].label.name)
+		
+
+
+
                 #print(marker)
                 markerArray.markers.append(marker)
                 for m in markerArray.markers:
                     m.id = i
                     i += 1
+                markerArray_text.markers.append(marker_text)
+                for m in markerArray_text.markers:
+                    m.id = i
+                    i += 1
             publisher_mark.publish(markerArray)
+            publisher_text.publish(markerArray_text)
+           
 	    print("for loop:"+str((rospy.get_rostime()-now).to_sec()))
 	    print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
             id += 1
@@ -109,6 +139,7 @@ if __name__ == '__main__':
         else:
             #r_max_id.sleep()
             publisher_mark.publish(markerArray)
+            publisher_text.publish(markerArray_text)
 	    print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
 
 #    # Publish the MarkerArray

@@ -1,64 +1,77 @@
 #!/usr/bin/env python
-###edit by chri
-import actionlib
-from actionlib_msgs.msg import GoalStatus
-from geometry_msgs.msg import Point, PoseStamped, Quaternion
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-import tf.transformations
-
-import smach_ros
-import rospy
-import smach
-import random
-
-import control_msgs.msg
-import controller_manager_msgs.srv
-import trajectory_msgs.msg
-
-import tmc_msgs.msg._TalkRequestFeedback #used to create talk actions
-import tmc_msgs.msg._TalkRequestGoal
-import tmc_msgs.msg._TalkRequestAction
-import tmc_msgs.msg._TalkRequestActionResult
-import tmc_msgs.msg._TalkRequestResult
-import tmc_msgs.msg._TalkRequestActionGoal
-import tmc_msgs.msg._TalkRequestActionFeedback
-
-
-#http://wiki.ros.org/mongodb_store
-#roslaunch mongodb_store mongodb_store.launch  db_path:=/home/v4r/Chri/yolo_detection_db db_port:=62345
-
-
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import rospy
 import mongodb_store_msgs.srv as dc_srv
 import mongodb_store.util as dc_util
-import tf2_ros
-import tf2_msgs.msg
 from mongodb_store.message_store import MessageStoreProxy
 from geometry_msgs.msg import Pose, Point, Quaternion
-
-###import my message
 from tmc_vision_msgs.msg import DetectionArray , Detection, Label
 from tmc_vision_msgs.msg import yolo_store_msg_Array, yolo_store_msg
-from std_msgs.msg import Header , String
 import StringIO
 
-def callback(data): 
-	rospy.loginfo("I got detections")
-	p_id = msg_store.insert_named(data.header.frame_id, data)
-	
+def callback(data):
+    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
+    p_id = msg_store.insert_named("sample", data)
     
 if __name__ == '__main__':
-    rospy.init_node("message_store_client")
+    rospy.init_node("example_message_store_client")
     msg_store = MessageStoreProxy()
 
     try:
-	rospy.loginfo("waiting for detections")
-	rospy.Subscriber("/yolo_store/msg_mongo",yolo_store_msg_Array,callback)
-	rospy.spin()
-	
+        rospy.loginfo("waiting for detections")
+        rospy.Subscriber("/yolo_store/msg_mongo",yolo_store_msg_Array,callback)
+        rospy.spin()
+
+        # insert a pose object with a name, store the id from db
+        #p_id = msg_store.insert_named("my favourite pose", p)
+
+        # # you don't need a name (note that this p_id is different than one above)
+        # p_id = msg_store.insert(p)
+
+        # p_id = msg_store.insert(['test1', 'test2'])
+
+        # # get it back with a name
+        # print msg_store.query_named("my favourite pose", Pose._type)
+
+        # p.position.x = 666
+
+        # # update it with a name
+        # msg_store.update_named("my favourite pose", p)
+
+        # p.position.y = 2020
+
+        # # update the other inserted one using the id
+        # msg_store.update_id(p_id, p)
+
+        # stored_p, meta = msg_store.query_id(p_id, Pose._type)
+
+        # assert stored_p.position.x == 666
+        # assert stored_p.position.y == 2020
+        # print "stored object ok"
+        # print "stored object inserted at %s (UTC rostime) by %s" % (meta['inserted_at'], meta['inserted_by'])
+        # print "stored object last updated at %s (UTC rostime) by %s" % (meta['last_updated_at'], meta['last_updated_by'])
+
+        # # some other things you can do...
+
+        # # get it back with a name
+        # print msg_store.query_named("my favourite pose", Pose._type)
+
+
+        # # try to get it back with an incorrect name, so get None instead
+        # print msg_store.query_named("my favourite position", Pose._type)
+
+        # # get all poses
+        # print msg_store.query(Pose._type)
+        # # get all non-existant typed objects, so get an empty list back
+        # print msg_store.query( "not my type")
+
+        # # get all poses where the y position is 1
+        # print msg_store.query(Pose._type, {"position.y": 1})
+
+        # # get all poses where the y position greater than 0
+        # print msg_store.query(Pose._type, {"position.y": {"$gt": 0}})
+
 
     except rospy.ServiceException, e:
         print "Service call failed: %s"%e
