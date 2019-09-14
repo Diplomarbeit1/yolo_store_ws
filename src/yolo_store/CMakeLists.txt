@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(yolo_store)
+add_compile_options(-std=c++11)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -136,7 +137,10 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIR}
+  ${Boost_LIBRARY_DIR}
 )
+
 
 ###########
 ## Build ##
