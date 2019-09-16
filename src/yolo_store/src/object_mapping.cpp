@@ -41,13 +41,13 @@ public:
     if(x < 0) return (x * (-1.0));
     else return x;
   }
-  geometry_msgs::Point yolo_transform(geometry_msgs::Point center_p, geometry_msgs::TransformStamped& tf_cam2world)
+  geometry_msgs::Point yolo_transform(geometry_msgs::Point current_point, geometry_msgs::TransformStamped& tf_cam2world)
   {
     int print_tranform = 0; 
     if(print_tranform) cout<<"transform point";
-    point_in.point = center_p;
-    //point_in.header.frame_id = "head_rgbd_sensor_rgb_frame";
-    point_in.header.frame_id = "head_xtion_depth_optical_frame";
+    point_in.point = current_point;
+    point_in.header.frame_id = "head_rgbd_sensor_rgb_frame";
+    //point_in.header.frame_id = "head_xtion_depth_optical_frame";
     tf2::doTransform(point_in, point_out, tf_cam2world);
     if(print_tranform) cout<<"\ntransformed"<<point_out.point.x;
     return point_out.point;
@@ -60,22 +60,6 @@ public:
     cx = round(det.x);
     cy = round(det.y);
     std::pair<int,int> adress = get_valid_point(cloud,cx,cy);
-
-
-    if(overwrite)
-    {
-      center_p.x = 1; 
-      center_p.y = 1;
-      center_p.z = 5; 
-      msg.lx = 1; 
-      msg.ly = 1; 
-      msg.lz = 1;
-      center_3D = yolo_transform(center_p,tf_cam2world);
-      msg.x = center_3D.x; 
-      msg.y = center_3D.y;
-      msg.z = center_3D.z;
-      return msg;  
-    }
 
     if(!adress.first||!adress.second)
     {
@@ -167,7 +151,7 @@ public:
     top_tf = yolo_transform(top_p,tf_cam2world);
     
     //distance of left to right 
-    float width_standing = (sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0)))*divw*float(fact) / 2.0;
+    float width_standing = (sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0))) / 2.0;
     float height_standing = (top_tf.z - bottom_tf.z);
 
     if(print)
@@ -338,15 +322,21 @@ public:
   {
     //define and start timer
     timer_=1;
-    ros::WallTime begin_;
+    
     //###########timer###########
     begin_ = ros::WallTime::now();
     if(timer_) cout<<"\n\n Starting timer\n";
     //###########timer###########
 
     //recieve max index of mongodb
-    current_ind = (*ros::topic::waitForMessage<std_msgs::Int32>(index_topic_)).data;//,ros::Duration(5))).data;
-
+    try 
+    {
+      current_ind = (*ros::topic::waitForMessage<std_msgs::Int32>(index_topic_)).data;//,ros::Duration(5))).data;
+    }
+    catch(std::runtime_error er)
+    {
+       return;
+    }
     //###########timer###########
      if(timer_) cout<<"ind after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     //###########timer###########
@@ -357,23 +347,54 @@ public:
     // list_.lookupTransform("map","head_rgbd_sensor_rgb_frame",ros::Time(0), transform);
     // tf2_ros::TransformListener tfListener(tfBuffer);
     
-    //try{tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_rgbd_sensor_rgb_frame", cloud->header.stamp);//, ros::Duration(1.0));//, ros::Duration(1.0) );
-
-    try{
-        tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_xtion_depth_optical_frame", cloud->header.stamp);//, ros::Duration(1.0));//, ros::Duration(1.0) );
+    try{tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_rgbd_sensor_rgb_frame",ros::Time(0) ,ros::Duration(2.0));//, ros::Duration(1.0));//, ros::Duration(1.0) );
+    // try{
+    //     tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_xtion_depth_optical_frame", cloud->header.stamp);//, ros::Duration(1.0));//, ros::Duration(1.0) );
       } catch (tf2::TransformException &ex) { 
       std::cout << ex.what() << std::endl <<"Ignoring this pcl" <<std::endl;
       return;
     }
-    // tf::TransformListener listener;
-    // tf::StampedTransform tf_cam2world;
-    // listener.lookupTransform("/turtle2", "/turtle1",
-    //                            ros::Time(0), tf_cam2world);
-    // cout<<"\n\n transformation"<<tf_cam2world<<"\n\n";
 
+    pcl_conversions::toPCL(*cloud,pcl_pc2);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
+    geometry_msgs::Point current_point ,result_point;
+    geometry_msgs::Point top_p ,bot_p,left_p,right_p;
+    int imx = 150;
+    int imy = 150;
+    int w = 5; 
+    int h_ = 5; 
+    current_point.x = temp_cloud->at(imx,imy).x;
+    current_point.y = temp_cloud->at(imx,imy).y;
+    current_point.z = temp_cloud->at(imx,imy).z;
 
-    //##### 
-    //int current_max_id = *ros::topic::waitForMessage<int32>(index_topic_);
+    top_p.x = temp_cloud->at(imx,imy + h_).x;
+    top_p.y = temp_cloud->at(imx,imy + h_).y;
+    top_p.z = temp_cloud->at(imx,imy + h_).z;
+
+    bot_p.x = temp_cloud->at(imx,imy - h_).x;
+    bot_p.y = temp_cloud->at(imx,imy - h_).y;
+    bot_p.z = temp_cloud->at(imx,imy - h_).z;
+
+    left_p.x = temp_cloud->at(imx - w,imy).x;
+    left_p.y = temp_cloud->at(imx - w,imy).y;
+    left_p.z = temp_cloud->at(imx - w,imy).z;
+
+    right_p.x = temp_cloud->at(imx + w,imy).x;
+    right_p.y = temp_cloud->at(imx + w,imy).y;
+    right_p.z = temp_cloud->at(imx + w,imy).z;
+
+    result_point = yolo_transform(current_point, tf_cam2world);
+    cout<<"\n result point at: "<<result_point.x<<" "<<result_point.y<<" " <<result_point.z<<"\n";
+    cout<<"\n top point at: "<<top_p.x<<" "<<top_p.y<<" " <<top_p.z<<"\n";
+    cout<<"\n bot point at: "<<bot_p.x<<" "<<bot_p.y<<" " <<bot_p.z<<"\n";
+    cout<<"\n left point at: "<<left_p.x<<" "<<left_p.y<<" " <<left_p.z<<"\n";
+    cout<<"\n right point at: "<<right_p.x<<" "<<right_p.y<<" " <<right_p.z<<"\n";
+
+    cout<<"final: "<<(sqrt(pow((right_p.x - left_p.x),2.0) + pow((right_p.y - left_p.y),2.0)))<<"\n";
+
+    
+
     //cout<<current_max_id;
     //###########timer###########
      if(timer_) cout<<"tf after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
@@ -404,7 +425,7 @@ public:
     //###########timer###########
 
     //recieve bounding box and name from yolo
-    int yolo_time = 15;
+    int yolo_time = 20;
     try{
        yolo_sub_detections = ros::topic::waitForMessage<DetectionArray>(yolo_sub_topic_,ros::Duration(yolo_time));
     }
@@ -427,9 +448,9 @@ public:
 
 
     //convert msg pcl to xyz pcl
-    pcl_conversions::toPCL(*cloud,pcl_pc2);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
+    // pcl_conversions::toPCL(*cloud,pcl_pc2);
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    // pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
 
     //transforming yolo_msg to mongo_msg;
     yolo_store_msg_Array mongo_detections;
@@ -484,8 +505,8 @@ public:
   }
   
   PointCloudToImage () : 
-	cloud_topic_("/head_xtion/depth_registered/points"),
-	//cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
+	//cloud_topic_("/head_xtion/depth_registered/points"),
+	cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
 	image_topic_("/yolo_store/yolo_input_image"),
   mongo_topic_("/yolo_store/msg_mongo"),
   index_topic_("/yolo_store/max_index"),
@@ -519,7 +540,7 @@ private:
   ros::NodeHandle nh_;
   sensor_msgs::Image yolo_image; //cache the image message
   //geometry_msgs::TransformStamped tf_saved;
-
+  ros::WallTime begin_;
   std::string cloud_topic_; //default input
   std::string image_topic_; //default output
   std::string mongo_topic_;
