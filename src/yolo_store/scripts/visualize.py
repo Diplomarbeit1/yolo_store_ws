@@ -39,6 +39,7 @@ def visualize():
 
 markerArray = MarkerArray()
 markerArray_text = MarkerArray()
+weight_arr = []
 count = 0.0
 cnt = 0.0
 #MARKERS_MAX = 1000
@@ -61,8 +62,8 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         #print("visualizing message  {} ",.format(str(id))
 	
-	start =  rospy.get_rostime()
-	now = rospy.get_rostime()
+        start =  rospy.get_rostime()
+        now = rospy.get_rostime()
 
         mongo_array = msg_store.query(yolo_store_msg_Array._type)#  sort_query = [], projection_query = {}, limit=0)
         max_id = mongo_array.__len__()
@@ -70,8 +71,8 @@ if __name__ == '__main__':
         #print("max id:",max_id)
         publisher_id.publish(max_id)
 
-	print("query:"+str((rospy.get_rostime()-now).to_sec()))
-	now = rospy.get_rostime()
+        print("query:"+str((rospy.get_rostime()-now).to_sec()))
+        now = rospy.get_rostime()
 
         #print((mongo_array[1][0].msgs[0]))
         if id < max_id & max_id > 0:
@@ -113,6 +114,7 @@ if __name__ == '__main__':
                 #print("\n x:",marker.scale.x)
                 
                 #print( "markerarray length: " + str())
+                weight = 1
                 if(markerArray.markers.__len__() > 0):
                     #print("i_ at " + str(i_))
                     j = 0
@@ -127,20 +129,19 @@ if __name__ == '__main__':
                         if(dist <= thresh_):
                             if( current_array.msgs[i].label.name ==  markerArray_text.markers[j-1].text):
                                 print("DIST " + str(dist) + " replacing " + current_array.msgs[i].label.name + " with " + markerArray_text.markers[j-1].text)
-                                del markerArray.markers[j-1]
-                                del markerArray_text.markers[j-1]
-                                
                                 # np.delete(markerArray.markers,j,0)
                                 # np.delete(markerArray_text.markers,j,0)
                                 print( "markerarray length: " + str(markerArray.markers.__len__()))   
-                                x = x - distx / 2
-                                y = y - disty / 2
-                                z = z - distz / 2
+                                x = x - distx / (weight + weight_arr[j-1])
+                                y = y - disty / (weight + weight_arr[j-1])
+                                z = z - distz / (weight + weight_arr[j-1])                                
+                                weight += 1 
+                                del weight_arr[j-1]
+                                del markerArray.markers[j-1]
+                                del markerArray_text.markers[j-1]
                             else: 
-                                print("!!!!!!!!!####### " + str(dist) + " Tried to replace " + current_array.msgs[i].label.name + " with " + markerArray_text.markers[j-1].text)
-                            
-                    
-                #print id
+                                print("####### with a distance of " + str(dist) + " ...Tried to replace " + current_array.msgs[i].label.name + " with " + markerArray_text.markers[j-1].text)
+                weight_arr[i_] = 1 + weight
                 marker_text = Marker(
                 type = Marker.TEXT_VIEW_FACING,
                 id = 0,
@@ -164,7 +165,7 @@ if __name__ == '__main__':
                 markerArray_text.markers.append(marker_text)
                 #for m in markerArray_text.markers:
                 i_ += 1
-                print i_
+                #print i_
                 #print j_
             #publisher_mark.publish(markerArray)
             #publisher_text.publish(markerArray_text)
@@ -179,7 +180,7 @@ if __name__ == '__main__':
             publisher_mark.publish(markerArray)
             publisher_text.publish(markerArray_text)
 	    
-	    print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
+        print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
 
 
 

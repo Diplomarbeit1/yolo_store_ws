@@ -46,8 +46,8 @@ public:
     int print_tranform = 0; 
     if(print_tranform) cout<<"transform point";
     point_in.point = current_point;
-    point_in.header.frame_id = "head_rgbd_sensor_rgb_frame";
-    //point_in.header.frame_id = "head_xtion_depth_optical_frame";
+    //point_in.header.frame_id = "head_rgbd_sensor_rgb_frame";
+    point_in.header.frame_id = "head_xtion_depth_optical_frame";
     tf2::doTransform(point_in, point_out, tf_cam2world);
     if(print_tranform) cout<<"\ntransformed"<<point_out.point.x;
     return point_out.point;
@@ -55,7 +55,7 @@ public:
   yolo_store_msg get_yolo_detection(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,tmc_vision_msgs::Detection det, geometry_msgs::TransformStamped& tf_cam2world) 
   {
     msg.label = det.label;
-    print = 1; 
+    print = 0; 
     overwrite = 0;
     cx = round(det.x);
     cy = round(det.y);
@@ -80,10 +80,10 @@ public:
                   // by shrinking the bounding box by the factor/2 and then expanding it later with the factors below
     int height4 = det.height / fact;
     float divh = float(det.height)/float(height4); //if perfect and no rounding error occurs divh = fact
-    cout<<"\n divh "<<divh;
+    if(print) cout<<"\n divh "<<divh;
     int width4 = det.width / fact;
     float divw = float(det.width)/float(width4);
-    cout<<"\n divw "<<divw<<"\n";
+    if(print) cout<<"\n divw "<<divw<<"\n";
     //
     if(print) cout<<"\nright";
     std::pair<int,int> adress_right = get_valid_point(cloud, x + int(det.height/fact), y);
@@ -151,7 +151,7 @@ public:
     top_tf = yolo_transform(top_p,tf_cam2world);
     
     //distance of left to right 
-    float width_standing = (sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0))) / 2.0;
+    float width_standing = (sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0)));
     float height_standing = (top_tf.z - bottom_tf.z);
 
     if(print)
@@ -164,52 +164,38 @@ public:
       cout<<"\nrest:" << right_tf.z <<" "<< left_tf.z;
       cout<<"calc" << pow((right_tf.x - left_tf.x),2.0);
       cout<<"root" << sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0));
-      
     }
-    if(height_standing > width_standing)
+    if(height_standing > width_standing / 8)
     {
       if(print) cout<<"\nstanding";
       //object is standing 
-      msg.lz = height_standing;
-      msg.ly = width_standing;
-      msg.lx = width_standing; 
+      msg.lz = height_standing * (fact-1.0);
+      msg.ly = width_standing * (fact-1.0);
+      msg.lx = width_standing * (fact-1.0); 
       msg.x = center_3D.x; 
       msg.y = center_3D.y;
       msg.z = center_3D.z;
       msg.center_p.x = center_3D.x;
       msg.center_p.y = center_3D.y;
       msg.center_p.z = center_3D.z;
-      
     }
     else 
     {
       if(print) cout<<"\nlying";
       //object is lying 
-      msg.lz = 0.05;
-      msg.ly = width_standing;
-      msg.lx = width_standing;
+      msg.lz = 0.5;
+      msg.ly = width_standing * (fact-1.0);
+      msg.lx = width_standing * (fact-1.0);
       msg.x = center_3D.x; 
       msg.y = center_3D.y;
       msg.z = center_3D.z; 
       msg.center_p.x = center_3D.x;
       msg.center_p.y = center_3D.y;
       msg.center_p.z = center_3D.z;
-      int print; 
-      int overwrite;
-      int cx,cy;
+      // int print; 
+      // int overwrite;
+      // int cx,cy;
     }
-
-
-    // //calculating real height including rounding error and /2 because ((height or width)/fact) was added 2 times
-    // msg.lz = (cloud->at(xt,yt).x - cloud->at(xb,yb).x)  * divw / 2; 
-    // if(msg.lz < 0) msg.lz = -msg.lz;
-    // float width = (cloud->at(xr,yr).y - cloud->at(xl,yl).y) * divw / 2; 
-    // int disp = 1;
-    // if(width < 0) width = -width;
-    
- 
-
-
     return msg; 
   }
   
@@ -220,7 +206,7 @@ public:
   {
     int b = 5;
     int print = 0;
-    int print2 = 1; 
+    int print2 = 0; 
     if(print) cout<<"\n get valid point x: "<<(x)<<" y:"<<(y)<<" \n";                         //print distance --set x/y start value to 100!
     if(print) cout<<"\n get valid point x: "<<cld->at(x,y).x<<" y:"<<cld->at(x,y).y<<" z:"<<cld->at(x,y).y<<" \n";
     pair<int,int> p = make_pair(x,y);
@@ -248,13 +234,13 @@ public:
     
     if(y<b||y>(480-b)||x<b||x>(640-b))   //too near to the edge
     {
-      cout<<"out of bounds"<<"\n";
+      cout<<"\ntoo near to the edge"<<"\n";
       return make_pair(0,0);
     }
     else cld->at(x,y);
     if(dist>(d*2))//times 2 because for every increase of the distance 2 more pixels are added per direction => so actually in 4 pixels in whole
     {
-      cout<<"too far away"<<"\n";
+      cout<<"\ntoo far away from origin"<<"\n";
       return make_pair(0,0);
     }
     if(isnan(cld->at(x,y).x)||isnan(cld->at(x,y).y)||isnan(cld->at(x,y).z)) not_valid=1; else not_valid=m;
@@ -322,6 +308,7 @@ public:
   {
     //define and start timer
     timer_=1;
+    int print = 0;
     
     //###########timer###########
     begin_ = ros::WallTime::now();
@@ -347,9 +334,9 @@ public:
     // list_.lookupTransform("map","head_rgbd_sensor_rgb_frame",ros::Time(0), transform);
     // tf2_ros::TransformListener tfListener(tfBuffer);
     
-    try{tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_rgbd_sensor_rgb_frame",ros::Time(0) ,ros::Duration(2.0));//, ros::Duration(1.0));//, ros::Duration(1.0) );
+    try{tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_xtion_depth_optical_frame",cloud->header.stamp ,ros::Duration(2.0));//, ros::Duration(1.0));//, ros::Duration(1.0) );
     // try{
-    //     tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_xtion_depth_optical_frame", cloud->header.stamp);//, ros::Duration(1.0));//, ros::Duration(1.0) );
+    //     tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_rgbd_sensor_rgb_frame", cloud->header.stamp or ros::Time(0));//, ros::Duration(1.0));//, ros::Duration(1.0) );
       } catch (tf2::TransformException &ex) { 
       std::cout << ex.what() << std::endl <<"Ignoring this pcl" <<std::endl;
       return;
@@ -358,6 +345,9 @@ public:
     pcl_conversions::toPCL(*cloud,pcl_pc2);
     pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
+    
+    if(print)
+    {
     geometry_msgs::Point current_point ,result_point;
     geometry_msgs::Point top_p ,bot_p,left_p,right_p;
     int imx = 150;
@@ -383,21 +373,21 @@ public:
     right_p.x = temp_cloud->at(imx + w,imy).x;
     right_p.y = temp_cloud->at(imx + w,imy).y;
     right_p.z = temp_cloud->at(imx + w,imy).z;
-
+	
     result_point = yolo_transform(current_point, tf_cam2world);
+
     cout<<"\n result point at: "<<result_point.x<<" "<<result_point.y<<" " <<result_point.z<<"\n";
     cout<<"\n top point at: "<<top_p.x<<" "<<top_p.y<<" " <<top_p.z<<"\n";
     cout<<"\n bot point at: "<<bot_p.x<<" "<<bot_p.y<<" " <<bot_p.z<<"\n";
     cout<<"\n left point at: "<<left_p.x<<" "<<left_p.y<<" " <<left_p.z<<"\n";
     cout<<"\n right point at: "<<right_p.x<<" "<<right_p.y<<" " <<right_p.z<<"\n";
-
     cout<<"final: "<<(sqrt(pow((right_p.x - left_p.x),2.0) + pow((right_p.y - left_p.y),2.0)))<<"\n";
-
+    }
     
 
     //cout<<current_max_id;
     //###########timer###########
-     if(timer_) cout<<"tf after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
+    if(timer_) cout<<"tf after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     //###########timer###########
 
     //convert pcl to image
@@ -439,14 +429,15 @@ public:
       ROS_ERROR_STREAM("No results recieved from yolo after: " <<yolo_time << " seconds \n ...restarting");
       return;
     }
-    cout<<"still here";
     //###########timer###########
     if(timer_){
-    if(yolo_sub_detections->detections.size()>0)if(yolo_sub_detections->detections.size()>0) cout<<"recieve "<<yolo_sub_detections->detections.size()<<" Objects after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
-    else cout<<"did no recieve any objects";
+      if(yolo_sub_detections->detections.size()>0) cout<<"recieve "<<yolo_sub_detections->detections.size()<<" Objects after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
-
-
+    if(!(yolo_sub_detections->detections.size()>0)) 
+    {
+      cout<<"\ndid not recieve any objects";
+      return;
+    }
     //convert msg pcl to xyz pcl
     // pcl_conversions::toPCL(*cloud,pcl_pc2);
     // pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
@@ -464,26 +455,29 @@ public:
   
     while(running_ == 1)
     {
-      cout<<"\n start storing "<<yolo_sub_detections->detections[i].label.name;
-      cout<<"\n input x:"<<yolo_sub_detections->detections[i].x;
-      cout<<"\n input y:"<<yolo_sub_detections->detections[i].y;
-      cout<<"\n input w:"<<yolo_sub_detections->detections[i].width;
-      cout<<"\n input h:"<<yolo_sub_detections->detections[i].height<<"\n";
-
+      if(print)
+      {
+        cout<<"\n start storing "<<yolo_sub_detections->detections[i].label.name;
+        cout<<"\n input x:"<<yolo_sub_detections->detections[i].x;
+        cout<<"\n input y:"<<yolo_sub_detections->detections[i].y;
+        cout<<"\n input w:"<<yolo_sub_detections->detections[i].width;
+        cout<<"\n input h:"<<yolo_sub_detections->detections[i].height<<"\n";
+      }
+      
       mongo_detections.msgs[i] = get_yolo_detection(temp_cloud,yolo_sub_detections->detections[i],tf_cam2world);
       if(mongo_detections.msgs[i].x == 0 || mongo_detections.msgs[i].y == 0 || mongo_detections.msgs[i].z == 0) 
       {
-        cout<<"\n error in callback: object: "<<yolo_sub_detections->detections[i].label.name<<" will NOT be stored \n";
+        cout<<"\n FAIL: object: "<<yolo_sub_detections->detections[i].label.name<<" will NOT be stored \n";
       }
       else 
       {
-        cout<<"SUCESS in callback: object: "<<yolo_sub_detections->detections[i].label.name<<" will be stored \n";
+        cout<<"\nSUCESS: object: "<<yolo_sub_detections->detections[i].label.name<<" will be stored \n";
         i++;
       }
       var_++;
       if(var_ == yolo_sub_detections->detections.size()) running_ = 0;
     }
-    cout<<"i: "<<i;
+    if(print) cout<<"i: "<<i;
     mongo_detections.msgs.resize(i);
 
 
@@ -499,14 +493,14 @@ public:
     if(timer_){
     if(yolo_sub_detections->detections.size()>0) cout<<"\n publish "<<i<<" to mongo after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
-
+    cout<<"\n publishing "<<i<<" objects to mongo database";
     cout<<"finsihed and resting now \n";
 
   }
   
   PointCloudToImage () : 
-	//cloud_topic_("/head_xtion/depth_registered/points"),
-	cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
+	cloud_topic_("/head_xtion/depth_registered/points"),
+	//cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
 	image_topic_("/yolo_store/yolo_input_image"),
   mongo_topic_("/yolo_store/msg_mongo"),
   index_topic_("/yolo_store/max_index"),
@@ -527,19 +521,17 @@ public:
     std::string r_mt = nh_.resolveName (mongo_topic_);
     std::string r_tf = nh_.resolveName (tf_sub_topic);
     std::string r_id = nh_.resolveName (index_topic_);
-    
 
     ROS_INFO_STREAM("Listening for incoming tf on topic " << r_tf );
-    ROS_INFO_STREAM("Listening for incoming data on topic " << r_ct );
+    ROS_INFO_STREAM("Listening for incoming pcl on topic " << r_ct );
     ROS_INFO_STREAM("Publishing image on topic " << r_it );
     ROS_INFO_STREAM("Recieving from yolo on topic " << r_yt );
-    ROS_INFO_STREAM("Publish point cloud to " << r_pt );
+    //ROS_INFO_STREAM("Publish point cloud to " << r_pt );
     ROS_INFO_STREAM("Publish mongodb_message to " << r_mt );
   }
 private:
   ros::NodeHandle nh_;
   sensor_msgs::Image yolo_image; //cache the image message
-  //geometry_msgs::TransformStamped tf_saved;
   ros::WallTime begin_;
   std::string cloud_topic_; //default input
   std::string image_topic_; //default output
@@ -578,9 +570,9 @@ main (int argc, char **argv)
   tf2_ros::Buffer tfBuffer;
   tf2_ros::TransformListener tfListener(tfBuffer);
   tfBuffer_pntr= &tfBuffer;
-
+  ros::WallTime start_pci = ros::WallTime::now();
   PointCloudToImage pci;
-
+  cout<<"WHOLE PROCESS: "<<(ros::WallTime::now() - start_pci).toSec()<< " seconds\n";
   
   ros::spin();
 
