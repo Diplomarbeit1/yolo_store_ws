@@ -29,7 +29,7 @@ import random
 # topic = 'visualization_marker_array'
 # publisher = rospy.Publisher(topic, MarkerArray,queue_size=1)
 
-thresh_ = 0.4
+thresh = 0.4
 
 def visualize():
     rospy.init_node('listener', anonymous=True)
@@ -42,7 +42,8 @@ markerArray = MarkerArray()
 markerArray_pub = MarkerArray()
 markerArray_text = MarkerArray()
 weight_arr = []
-
+name_arr = []
+grow_factor = 1.5
 count = 0.0
 cnt = 0.0
 #MARKERS_MAX = 1000
@@ -87,7 +88,7 @@ if __name__ == '__main__':
                 name = str(current_array.msgs[i].label.name)
                 print("storing : " + name)
                 store = 1
-                if(name=='person' or name=='toilet'):
+                if(name == 'person' or name == 'toilet' or name == 'chair'):
                     store = 0
                 if(i <= 0): 
                     ad = 0.01 
@@ -102,11 +103,11 @@ if __name__ == '__main__':
                 if(current_array.msgs[i].lx==0):
                     print("lentgh is 0 adding small marker")
                     ad=0.01
-                lx = current_array.msgs[i].lx + ad
-                ly = current_array.msgs[i].ly + ad
-                lz = current_array.msgs[i].lz + ad
-                marker.scale.y = current_array.msgs[i].ly + ad
-                marker.scale.z = current_array.msgs[i].lz + ad
+                lx = current_array.msgs[i].lx * grow_factor + ad
+                ly = current_array.msgs[i].ly * grow_factor + ad
+                lz = current_array.msgs[i].lz * grow_factor *0.9 + ad
+                #marker.scale.y = current_array.msgs[i].ly + ad
+                #marker.scale.z = current_array.msgs[i].lz + ad
                 marker.color.a = current_array.msgs[i].label.confidence
                 marker.color.r = random.random()
                 marker.color.g = random.random()
@@ -121,35 +122,39 @@ if __name__ == '__main__':
                     #print("negative floor")
                     #rospy.sleep(4)
                     
-                if((name == 'table' or name == 'diningtable') and marker.scale.z < 0.1): 
-                    marker1 = Marker()
-                    marker1.header.frame_id = "map"
-                    marker1.type = marker.CUBE
-                    marker1.action = marker.ADD
-                    marker1.scale.x = lx
-                    marker1.scale.y = ly 
-                    marker1.scale.z = lz
-                    marker1.pose.position.x = x
-                    marker1.pose.position.y = y
-                    marker1.pose.position.z = z
-                    marker1.color.a = current_array.msgs[i].label.confidence
-                    marker1.color.r = random.random()
-                    marker1.color.g = random.random()
-                    marker1.color.b = random.random()
-                    marker1.pose.orientation.w = 1.0
+                if((name == 'table' or name == 'diningtable' or name == 'chair' or name == 'sofa') and marker.scale.z < 0.1): 
+                    # marker1 = Marker()
+                    # marker1.header.frame_id = "map"
+                    # marker1.type = marker.CUBE
+                    # marker1.action = marker.ADD
+                    # marker1.scale.x = lx
+                    # marker1.scale.y = ly 
+                    # marker1.scale.z = lz
+                    # marker1.pose.position.x = x
+                    # marker1.pose.position.y = y
+                    # marker1.pose.position.z = z
+                    # marker1.color.a = current_array.msgs[i].label.confidence
+                    # marker1.color.r = random.random()
+                    # marker1.color.g = random.random()
+                    # marker1.color.b = random.random()
+                    # marker1.pose.orientation.w = 1.0
+                    lx = lx/grow_factor
+                    ly = ly/grow_factor
+                    lz = lz/grow_factor
                     #publisher_1mark.publish(marker1)
+                    
                     height = z
-                    lz = height
+                    lz = height * 0.8
                     z = height/2
-                    marker1.pose.position.z
-                    marker1.scale.z = lz
-                    publisher_1mark.publish(marker1)
+                    #marker1.pose.position.z
+                    #marker1.scale.z = lz
+                    #publisher_1mark.publish(marker1)
                     
                     #print("table")
                     #rospy.sleep(1)     
                 
                 weight = 1
-                if(markerArray.markers.__len__() > 0):
+                if(markerArray.markers.__len__() > 0 and store):
 
                     j = 0
                     
@@ -160,18 +165,21 @@ if __name__ == '__main__':
                         distz = z-markerArray.markers[j-1].pose.position.z
 
                         dist = math.sqrt(math.pow((distx),2) + math.pow((disty),2) + math.pow((distz),2))
+                        thresh_ = thresh
+                        if(thresh_>lx/2): thresh_ = lx/2
+                        if(thresh_>markerArray.markers[j-1].scale.x/2): thresh_ = markerArray.markers[j-1].scale.x/2
 
-                        if(dist <= thresh_):
+                        if((dist <= thresh_) and lx<2 and ly<2 and lz<1.5 ):
                             if(name ==  str(markerArray_text.markers[j-1].text)): # current_array.msgs[i].label.name ==  markerArray_text.markers[j-1].text):
                                 print("##DIST " + str(dist) + " replacing " + current_array.msgs[i].label.name + " with " + markerArray_text.markers[j-1].text)
-
-                                lx = markerArray.markers[j-1].scale.x - (lx-markerArray.markers[j-1].scale.x) / (weight + weight_arr[j-1])
-                                ly = markerArray.markers[j-1].scale.y - (ly-markerArray.markers[j-1].scale.y) / (weight + weight_arr[j-1])
-                                lz = markerArray.markers[j-1].scale.z - (lx-markerArray.markers[j-1].scale.z) / (weight + weight_arr[j-1])
-                            
-                                x = markerArray.markers[j-1].pose.position.x - distx / (weight + weight_arr[j-1])
-                                y = markerArray.markers[j-1].pose.position.y - disty / (weight + weight_arr[j-1])
-                                z = markerArray.markers[j-1].pose.position.z - distz / (weight + weight_arr[j-1])  
+                                
+                                lx = markerArray.markers[j-1].scale.x + (lx-markerArray.markers[j-1].scale.x) / (weight + weight_arr[j-1])
+                                ly = markerArray.markers[j-1].scale.y + (ly-markerArray.markers[j-1].scale.y) / (weight + weight_arr[j-1])
+                                lz = markerArray.markers[j-1].scale.z + (lz-markerArray.markers[j-1].scale.z) / (weight + weight_arr[j-1])
+                                
+                                x = markerArray.markers[j-1].pose.position.x + distx / (weight + weight_arr[j-1])
+                                y = markerArray.markers[j-1].pose.position.y + disty / (weight + weight_arr[j-1])
+                                z = markerArray.markers[j-1].pose.position.z + distz / (weight + weight_arr[j-1])  
              
                                 weight += weight_arr[j-1] 
 
@@ -184,26 +192,33 @@ if __name__ == '__main__':
                                 print("####### with a distance of " + str(dist) + " ...Tried to replace " + current_array.msgs[i].label.name + " with " + markerArray_text.markers[j-1].text)
                 #print( "markerarray length: " + str(markerArray.markers.__len__()))
 
-                if(store and lx<2 and ly<2):
+                if(store  and lx<2 and ly<2 and lz<1.5):
                     marker.scale.x = lx
                     marker.scale.y = ly 
+                    # if(name == 'table' or name == 'diningtable'):
+                    #     lz = lz - lz*0.4/weight
                     marker.scale.z = lz
 
                     marker.pose.position.x = x
                     marker.pose.position.y = y
                     marker.pose.position.z = z
 
+                    
                     weight_arr.append(1 + weight)
                     marker_text = Marker(
                     type = Marker.TEXT_VIEW_FACING,
                     id = 0,
-                    pose=Pose(Point(x, y, z + marker.scale.z + 0.03),
+                    pose=Pose(Point(x, y, z + marker.scale.z/2 + 0.05),
                     Quaternion(0, 0, 0, 1)),
                     scale = Vector3(0.06, 0.06, 0.06),
                     header = Header(frame_id="map"),
-                    color = ColorRGBA(0.0, 1.0, 0.0, 0.8),
+                    color = ColorRGBA( marker.color.r, marker.color.g, marker.color.b , 1.0),
                     text = current_array.msgs[i].label.name)
 
+                    d = 4
+                    t = rospy.Duration(d)
+                    marker.lifetime = t
+                    marker_text.lifetime = t
                     
                     #print i_ 
                     marker.id = i_
@@ -221,16 +236,17 @@ if __name__ == '__main__':
                     #     del markerArray_text.markers[markerArray.markers.__len__()-1]
                     #print i_
                     #print j_
-                else: 
-                    print("###THIS IS NOT RIGHT: PERSON OR TOILET")
+                # else: 
+                #     print("###THIS IS NOT RIGHT: PERSON OR TOILET")
 
             #markerArray_pub.markers = markerArray.markers[0:(markerArray.markers.__len__()-2)]
             #print(markerArray.markers.__len__())
-            #publisher_mark.publish(markerArray_pub)
+            publisher_mark.publish(markerArray)
             
-            #publisher_text.publish(markerArray_text)
-            #print("for loop:"+str((rospy.get_rostime()-now).to_sec()))
-            #print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
+            publisher_text.publish(markerArray_text)
+            #rospy.sleep(d)
+            print("for loop:"+str((rospy.get_rostime()-now).to_sec()))
+            print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
             id += 1
             #rospy.sleep(5)
 

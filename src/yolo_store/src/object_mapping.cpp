@@ -72,9 +72,8 @@ public:
 
     int x = adress.first;
     int y = adress.second;
-    center_p.x = cloud->at(x,y).x;
-    center_p.y = cloud->at(x,y).y; 
-    center_p.z = cloud->at(x,y).z;
+    
+    
     
     float fact = 20.0;// division factor for assuring that the points for calculating width/height are in the object 
                   // by shrinking the bounding box by the factor and then expanding it later with the factors below
@@ -85,6 +84,18 @@ public:
     int width4 = det.width / fact;
     float divw = float(det.width)/float(width4);
 
+    // if(!strcmp(det.label.name.c_str() , "table") || !strcmp(det.label.name.c_str() , "diningtable")) 
+    // {
+    //   y += det.height / 4;
+    // }
+    center_p.x = cloud->at(x,y).x;
+    center_p.y = cloud->at(x,y).y; 
+    center_p.z = cloud->at(x,y).z;
+
+    // if(!strcmp(det.label.name.c_str() , "table") || !strcmp(det.label.name.c_str() , "diningtable")) 
+    // {
+    //   y -= det.height / 4;
+    // }
     int rl_with = int(det.width/fact);
     int tb_height = int(det.height/fact);
     int f;
@@ -192,7 +203,7 @@ public:
     }
     if(height_standing  > width_standing / 7)
     {
-      if(strcmp(det.label.name.c_str() , "table") && strcmp(det.label.name.c_str() , "diningtable"))      center_p.z += sign_(left_p.x - right_p.x)*(divw-1.0)*0.3;
+      if(strcmp(det.label.name.c_str() , "table") && strcmp(det.label.name.c_str() , "diningtable"))      center_p.z += sign_(left_p.x - right_p.x)*(divw-1.0)*0.3; 
       center_3D = yolo_transform(center_p,tf_cam2world);
       if(print) cout<<"\nstanding";
       cout<<"\nheight div "<<divh<<" "<<divw;
