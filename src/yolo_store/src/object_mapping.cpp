@@ -32,7 +32,7 @@ using namespace std;
 using namespace tmc_vision_msgs;
 static int current_ind;
 tf2_ros::Buffer *tfBuffer_pntr;
-
+int roboter = 0;
 class PointCloudToImage
 {
 public:
@@ -46,8 +46,8 @@ public:
     int print_tranform = 0; 
     if(print_tranform) cout<<"transform point";
     point_in.point = current_point;
-    point_in.header.frame_id = "head_rgbd_sensor_rgb_frame";
-    //point_in.header.frame_id = "head_xtion_depth_optical_frame";
+    if(roboter) point_in.header.frame_id = "head_rgbd_sensor_rgb_frame";
+    else point_in.header.frame_id = "head_xtion_depth_optical_frame";
     tf2::doTransform(point_in, point_out, tf_cam2world);
     if(print_tranform) cout<<"\ntransformed"<<point_out.point.x;
     return point_out.point;
@@ -382,15 +382,9 @@ public:
      if(timer_) cout<<"ind after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     //###########timer###########
 
-    //get transfromation from camera to world frame
-    // tf::TransformListener list_;
-    // tf::StampedTransform transform;
-    // list_.lookupTransform("map","head_rgbd_sensor_rgb_frame head_xtion_depth_optical_frame",ros::Time(0), transform);
-    // tf2_ros::TransformListener tfListener(tfBuffer);
-    
-    try{tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_rgbd_sensor_rgb_frame",cloud->header.stamp ,ros::Duration(2.0));//, ros::Duration(1.0));//, ros::Duration(1.0) );
-    // try{
-    //tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_rgbd_sensor_rgb_frame", cloud->header.stamp or ros::Time(0));//, ros::Duration(1.0));//, ros::Duration(1.0) );
+
+    try{if(roboter) tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_rgbd_sensor_rgb_frame",cloud->header.stamp ,ros::Duration(2.0));
+        else tf_cam2world = tfBuffer_pntr->lookupTransform("map","head_xtion_depth_optical_frame", cloud->header.stamp,ros::Duration(2.0) );
       } catch (tf2::TransformException &ex) { 
       std::cout << ex.what() << std::endl <<"Ignoring this pcl" <<std::endl;
       return;
@@ -399,44 +393,6 @@ public:
     pcl_conversions::toPCL(*cloud,pcl_pc2);
     pcl::PointCloud<pcl::PointXYZRGB >::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
-    
-    // if(print)
-    // {
-    // geometry_msgs::Point current_point ,result_point;
-    // geometry_msgs::Point top_p ,bot_p,left_p,right_p;
-    // int imx = 150;
-    // int imy = 150;
-    // int w = 5; 
-    // int h_ = 5; 
-    // current_point.x = temp_cloud->at(imx,imy).x;
-    // current_point.y = temp_cloud->at(imx,imy).y;
-    // current_point.z = temp_cloud->at(imx,imy).z;
-
-    // top_p.x = temp_cloud->at(imx,imy + h_).x;
-    // top_p.y = temp_cloud->at(imx,imy + h_).y;
-    // top_p.z = temp_cloud->at(imx,imy + h_).z;
-
-    // bot_p.x = temp_cloud->at(imx,imy - h_).x;
-    // bot_p.y = temp_cloud->at(imx,imy - h_).y;
-    // bot_p.z = temp_cloud->at(imx,imy - h_).z;
-
-    // left_p.x = temp_cloud->at(imx - w,imy).x;
-    // left_p.y = temp_cloud->at(imx - w,imy).y;
-    // left_p.z = temp_cloud->at(imx - w,imy).z;
-
-    // right_p.x = temp_cloud->at(imx + w,imy).x;
-    // right_p.y = temp_cloud->at(imx + w,imy).y;
-    // right_p.z = temp_cloud->at(imx + w,imy).z;
-	
-    // result_point = yolo_transform(current_point, tf_cam2world);
-
-    // cout<<"\n result point at: "<<result_point.x<<" "<<result_point.y<<" " <<result_point.z<<"\n";
-    // cout<<"\n top point at: "<<top_p.x<<" "<<top_p.y<<" " <<top_p.z<<"\n";
-    // cout<<"\n bot point at: "<<bot_p.x<<" "<<bot_p.y<<" " <<bot_p.z<<"\n";
-    // cout<<"\n left point at: "<<left_p.x<<" "<<left_p.y<<" " <<left_p.z<<"\n";
-    // cout<<"\n right point at: "<<right_p.x<<" "<<right_p.y<<" " <<right_p.z<<"\n";
-    // cout<<"final: "<<(sqrt(pow((right_p.x - left_p.x),2.0) + pow((right_p.y - left_p.y),2.0)))<<"\n";
-    // }
     
 
     //cout<<current_max_id;
@@ -469,7 +425,7 @@ public:
     //###########timer###########
 
     //recieve bounding box and name from yolo
-    int yolo_time = 10;
+    int yolo_time = 8;
     try{
        yolo_sub_detections = ros::topic::waitForMessage<DetectionArray>(yolo_sub_topic_,ros::Duration(yolo_time));
     }
@@ -553,8 +509,8 @@ public:
   }
   
   PointCloudToImage () : 
-	//cloud_topic_("/head_xtion/depth_registered/points"),
-	cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
+	cloud_topic_("/head_xtion/depth_registered/points"),
+	//cloud_topic_("/hsrb/head_rgbd_sensor/depth_registered/rectified_points"),
 	image_topic_("/yolo_store/yolo_input_image"),
   mongo_topic_("/yolo_store/msg_mongo"),
   index_topic_("/yolo_store/max_index"),
@@ -562,6 +518,7 @@ public:
   yolo_sub_topic_("/yolo2_node/detections"),
   tf_sub_topic("tf")
   {
+    if(roboter) cloud_topic_ = "/hsrb/head_rgbd_sensor/depth_registered/rectified_points";
     sub_ = nh_.subscribe (cloud_topic_, 1, &PointCloudToImage::cloud_cb, this);
     yolo_pub_ = nh_.advertise<sensor_msgs::Image> (image_topic_, 1);
     mongo_pub_ = nh_.advertise<yolo_store_msg_Array> (mongo_topic_,1);
