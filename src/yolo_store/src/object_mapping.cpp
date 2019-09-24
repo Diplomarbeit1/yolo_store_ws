@@ -52,9 +52,9 @@ public:
     if(print_tranform) cout<<"\ntransformed"<<point_out.point.x;
     return point_out.point;
   }
-  yolo_store_msg get_yolo_detection(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,tmc_vision_msgs::Detection det, geometry_msgs::TransformStamped& tf_cam2world) 
+  yolo_store_msg get_yolo_detection(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,tmc_vision_msgs::Detection det, geometry_msgs::TransformStamped& tf_cam2world) 
   {
-    msg.label = det.label;
+    
     print = 0; 
     overwrite = 0;
     cx = round(det.x);
@@ -69,15 +69,28 @@ public:
       msg.z = 0; 
       return msg;
     }
-
+    
     int x = adress.first;
     int y = adress.second;
+
+    // if(strcmp(det.label.name.c_str(), "apple")&&cloud->at(x,y).g>120&&cloud->at(x,y).r>200)
+    // {
+    //   cout<<"####Detected orange "<<det.label.name;
+    //   msg.label.name = "orange";
+    // }
+    // else 
+    msg.label = det.label;
+    // if(strcmp(det.label.name.c_str(), "backpack")||strcmp(det.label.name.c_str(), "mouse")) 
+    // {
+    //   ros::Duration(1).sleep();
+    //   cout<<det.label.name;
+    // }
     
-    
-    
-    float fact = 20.0;// division factor for assuring that the points for calculating width/height are in the object 
+    float fact =  10.0;// division factor for assuring that the points for calculating width/height are in the object 
                   // by shrinking the bounding box by the factor and then expanding it later with the factors below
-    if(det.height/fact < 2) fact = 4;
+    //if(det.height/fact < 5) fact = 4.0;
+    if(det.height/fact < 2) fact = 4.0;
+    
     int height4 = det.height / fact;
     float divh = float(det.height)/float(height4); //if perfect and no rounding error occurs divh = fact
     if(print) cout<<"\n divh "<<divh;
@@ -190,7 +203,6 @@ public:
     float width_standing = (sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0)));
     float height_standing = (top_tf.z - bottom_tf.z);
     
-   
     if(print)
     {
       cout<<"\nwidth: "<<width_standing;
@@ -244,7 +256,7 @@ public:
   
      
   //######## check if valid if not...
-  std::pair<int,int> get_valid_point(pcl::PointCloud<pcl::PointXYZ>::Ptr cld, int x, int y) 
+  std::pair<int,int> get_valid_point(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld, int x, int y) 
   {
     int b = 20;
     int print = 0;
@@ -259,7 +271,7 @@ public:
     else return p;
   }
   //######## ... get next valid point
-  std::pair<int,int> valid_point_(pcl::PointCloud<pcl::PointXYZ>::Ptr cld, string direction, int x, int y, int dist, int cnt)
+  std::pair<int,int> valid_point_(pcl::PointCloud<pcl::PointXYZRGB>::Ptr cld, string direction, int x, int y, int dist, int cnt)
   {
     int b = 10;                                               //minimum distance to the edges of the image
     int d = 3;                                                //distance from the center point in pixel
@@ -385,46 +397,46 @@ public:
     }
 
     pcl_conversions::toPCL(*cloud,pcl_pc2);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZRGB >::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
     
-    if(print)
-    {
-    geometry_msgs::Point current_point ,result_point;
-    geometry_msgs::Point top_p ,bot_p,left_p,right_p;
-    int imx = 150;
-    int imy = 150;
-    int w = 5; 
-    int h_ = 5; 
-    current_point.x = temp_cloud->at(imx,imy).x;
-    current_point.y = temp_cloud->at(imx,imy).y;
-    current_point.z = temp_cloud->at(imx,imy).z;
+    // if(print)
+    // {
+    // geometry_msgs::Point current_point ,result_point;
+    // geometry_msgs::Point top_p ,bot_p,left_p,right_p;
+    // int imx = 150;
+    // int imy = 150;
+    // int w = 5; 
+    // int h_ = 5; 
+    // current_point.x = temp_cloud->at(imx,imy).x;
+    // current_point.y = temp_cloud->at(imx,imy).y;
+    // current_point.z = temp_cloud->at(imx,imy).z;
 
-    top_p.x = temp_cloud->at(imx,imy + h_).x;
-    top_p.y = temp_cloud->at(imx,imy + h_).y;
-    top_p.z = temp_cloud->at(imx,imy + h_).z;
+    // top_p.x = temp_cloud->at(imx,imy + h_).x;
+    // top_p.y = temp_cloud->at(imx,imy + h_).y;
+    // top_p.z = temp_cloud->at(imx,imy + h_).z;
 
-    bot_p.x = temp_cloud->at(imx,imy - h_).x;
-    bot_p.y = temp_cloud->at(imx,imy - h_).y;
-    bot_p.z = temp_cloud->at(imx,imy - h_).z;
+    // bot_p.x = temp_cloud->at(imx,imy - h_).x;
+    // bot_p.y = temp_cloud->at(imx,imy - h_).y;
+    // bot_p.z = temp_cloud->at(imx,imy - h_).z;
 
-    left_p.x = temp_cloud->at(imx - w,imy).x;
-    left_p.y = temp_cloud->at(imx - w,imy).y;
-    left_p.z = temp_cloud->at(imx - w,imy).z;
+    // left_p.x = temp_cloud->at(imx - w,imy).x;
+    // left_p.y = temp_cloud->at(imx - w,imy).y;
+    // left_p.z = temp_cloud->at(imx - w,imy).z;
 
-    right_p.x = temp_cloud->at(imx + w,imy).x;
-    right_p.y = temp_cloud->at(imx + w,imy).y;
-    right_p.z = temp_cloud->at(imx + w,imy).z;
+    // right_p.x = temp_cloud->at(imx + w,imy).x;
+    // right_p.y = temp_cloud->at(imx + w,imy).y;
+    // right_p.z = temp_cloud->at(imx + w,imy).z;
 	
-    result_point = yolo_transform(current_point, tf_cam2world);
+    // result_point = yolo_transform(current_point, tf_cam2world);
 
-    cout<<"\n result point at: "<<result_point.x<<" "<<result_point.y<<" " <<result_point.z<<"\n";
-    cout<<"\n top point at: "<<top_p.x<<" "<<top_p.y<<" " <<top_p.z<<"\n";
-    cout<<"\n bot point at: "<<bot_p.x<<" "<<bot_p.y<<" " <<bot_p.z<<"\n";
-    cout<<"\n left point at: "<<left_p.x<<" "<<left_p.y<<" " <<left_p.z<<"\n";
-    cout<<"\n right point at: "<<right_p.x<<" "<<right_p.y<<" " <<right_p.z<<"\n";
-    cout<<"final: "<<(sqrt(pow((right_p.x - left_p.x),2.0) + pow((right_p.y - left_p.y),2.0)))<<"\n";
-    }
+    // cout<<"\n result point at: "<<result_point.x<<" "<<result_point.y<<" " <<result_point.z<<"\n";
+    // cout<<"\n top point at: "<<top_p.x<<" "<<top_p.y<<" " <<top_p.z<<"\n";
+    // cout<<"\n bot point at: "<<bot_p.x<<" "<<bot_p.y<<" " <<bot_p.z<<"\n";
+    // cout<<"\n left point at: "<<left_p.x<<" "<<left_p.y<<" " <<left_p.z<<"\n";
+    // cout<<"\n right point at: "<<right_p.x<<" "<<right_p.y<<" " <<right_p.z<<"\n";
+    // cout<<"final: "<<(sqrt(pow((right_p.x - left_p.x),2.0) + pow((right_p.y - left_p.y),2.0)))<<"\n";
+    // }
     
 
     //cout<<current_max_id;
@@ -493,21 +505,23 @@ public:
     //  transform points and save to mongo_message
     int running_ = 1;
     int i = 0;
-    int var_ = 0;
+    int var_ = -1;
   
     while(running_ == 1)
     {
       if(print)
       {
         cout<<"\n start storing "<<yolo_sub_detections->detections[i].label.name;
+        
         cout<<"\n input x:"<<yolo_sub_detections->detections[i].x;
         cout<<"\n input y:"<<yolo_sub_detections->detections[i].y;
         cout<<"\n input w:"<<yolo_sub_detections->detections[i].width;
         cout<<"\n input h:"<<yolo_sub_detections->detections[i].height<<"\n";
+        
       }
       
-      mongo_detections.msgs[i] = get_yolo_detection(temp_cloud,yolo_sub_detections->detections[i],tf_cam2world);
-      if(mongo_detections.msgs[i].x == 0 || mongo_detections.msgs[i].y == 0 || mongo_detections.msgs[i].z == 0) 
+      mongo_detections.msgs[var_+1] = get_yolo_detection(temp_cloud,yolo_sub_detections->detections[i],tf_cam2world);
+      if(mongo_detections.msgs[var_+1].x == 0 || mongo_detections.msgs[var_+1].y == 0 || mongo_detections.msgs[var_+1].z == 0) 
       {
         cout<<"\n FAIL: object: "<<yolo_sub_detections->detections[i].label.name<<" will NOT be stored \n";
       }
@@ -520,22 +534,20 @@ public:
       if(i == yolo_sub_detections->detections.size()) running_ = 0;
     }
     if(print) cout<<"i: "<<i;
-    mongo_detections.msgs.resize(var_);
+    if((var_+1)>0) mongo_detections.msgs.resize(var_+1);
 
-
-    //###########timer###########
     if(timer_){
     if(yolo_sub_detections->detections.size()>0) cout<<"\n transform to mongo_msg for loop after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
 
     //publish to mongo
-    if(i) mongo_pub_.publish (mongo_detections);
+    if(var_+1) mongo_pub_.publish (mongo_detections);
 
     //###########timer###########
     if(timer_){
-    if(yolo_sub_detections->detections.size()>0) cout<<"\n publish "<<i<<" to mongo after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
+    if(var_+1) cout<<"\n publish "<<var_+1<<" to mongo after "<<(ros::WallTime::now() - begin_).toSec()<< " seconds\n";
     }//###########timer###########
-    cout<<"\n publishing "<<i<<" objects to mongo database";
+    cout<<"\n publishing "<<var_+1<<" objects to mongo database";
     cout<<"finsihed and resting now \n";
 
   }

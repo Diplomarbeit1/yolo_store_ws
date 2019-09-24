@@ -69,7 +69,6 @@ if __name__ == '__main__':
 	
         start =  rospy.get_rostime()
         now = rospy.get_rostime()
-
         mongo_array = msg_store.query(yolo_store_msg_Array._type)#  sort_query = [], projection_query = {}, limit=0)
         max_id = mongo_array.__len__()
         print("visualize msg: "+str(id)+" / "+str(max_id))
@@ -84,10 +83,13 @@ if __name__ == '__main__':
            
             current_array = mongo_array[id][0]
             i=0
+
             for i in range(current_array.msgs.__len__()):
                 name = str(current_array.msgs[i].label.name)
-                print("storing : " + name)
+                print("storing: " + name +" "+ str(i)+"/"+str(current_array.msgs.__len__()))
                 store = 1
+                #rospy.sleep(3)
+
                 if(name == 'person' or name == 'toilet' or name == 'chair'):
                     store = 0
                 if(i <= 0): 
@@ -100,12 +102,13 @@ if __name__ == '__main__':
                 marker.type = marker.CUBE
                 marker.action = marker.ADD
                 #print(int(round(i/z))*10)
-                if(current_array.msgs[i].lx==0):
-                    print("lentgh is 0 adding small marker")
-                    ad=0.01
-                lx = current_array.msgs[i].lx * grow_factor + ad
-                ly = current_array.msgs[i].ly * grow_factor + ad
-                lz = current_array.msgs[i].lz * grow_factor *0.9 + ad
+                if(current_array.msgs[i].x==0 or current_array.msgs[i].lx==0):
+                    print("######UUUPS")
+                    store = 0
+                
+                lx = current_array.msgs[i].lx * grow_factor 
+                ly = current_array.msgs[i].ly * grow_factor 
+                lz = current_array.msgs[i].lz * grow_factor *0.9 
                 #marker.scale.y = current_array.msgs[i].ly + ad
                 #marker.scale.z = current_array.msgs[i].lz + ad
                 marker.color.a = current_array.msgs[i].label.confidence
@@ -113,9 +116,9 @@ if __name__ == '__main__':
                 marker.color.g = random.random()
                 marker.color.b = random.random()
                 marker.pose.orientation.w = 1.0
-                x = current_array.msgs[i].x+ad
-                y = current_array.msgs[i].y+ad
-                z = current_array.msgs[i].z+ad    
+                x = current_array.msgs[i].x
+                y = current_array.msgs[i].y
+                z = current_array.msgs[i].z   
                 if((z-lz/2)<0):
                     lz = lz*0.8
                     z = lz/2
@@ -154,12 +157,12 @@ if __name__ == '__main__':
                     #rospy.sleep(1)     
                 
                 weight = 1
-                if(markerArray.markers.__len__() > 0 and store):
+                length_marker = markerArray.markers.__len__()
+                if(length_marker > 0 and store and lx>0):
 
                     j = 0
-                    
-                    for j in range(markerArray.markers.__len__()-1):  #range():
-
+                    while j < length_marker:  #range():
+                        j+=1
                         distx = x-markerArray.markers[j-1].pose.position.x
                         disty = y-markerArray.markers[j-1].pose.position.y
                         distz = z-markerArray.markers[j-1].pose.position.z
@@ -167,12 +170,21 @@ if __name__ == '__main__':
                         dist = math.sqrt(math.pow((distx),2) + math.pow((disty),2) + math.pow((distz),2))
                         thresh_ = thresh
                         if(thresh_>lx/2): thresh_ = lx/2
+                        print("thresh"+str(thresh_))
                         if(thresh_>markerArray.markers[j-1].scale.x/2): thresh_ = markerArray.markers[j-1].scale.x/2
-
-                        if((dist <= thresh_) and lx<2 and ly<2 and lz<1.5 ):
-                            if(name ==  str(markerArray_text.markers[j-1].text)): # current_array.msgs[i].label.name ==  markerArray_text.markers[j-1].text):
-                                print("##DIST " + str(dist) + " replacing " + current_array.msgs[i].label.name + " with " + markerArray_text.markers[j-1].text)
+                        
+                        if((dist <= thresh_) and lx<1.5 and ly<1.5 and lz<1.5):
+                            if(1):#name ==  str(markerArray_text.markers[j-1].text)): # current_array.msgs[i].label.name ==  markerArray_text.markers[j-1].text):
                                 
+                                name_o = name
+                                name_n = markerArray_text.markers[j-1].text
+                                if(name_o=="orange" or name_n=="orange"):
+                                    name_o="orange"
+                                if(name_o=="mouse" or name_n=="mouse"): 
+                                    name_o="mouse"
+                                name=name_o
+                                print("##DIST " + str(dist) + " replacing " + name_n + " with " + name_o)
+
                                 lx = markerArray.markers[j-1].scale.x + (lx-markerArray.markers[j-1].scale.x) / (weight + weight_arr[j-1])
                                 ly = markerArray.markers[j-1].scale.y + (ly-markerArray.markers[j-1].scale.y) / (weight + weight_arr[j-1])
                                 lz = markerArray.markers[j-1].scale.z + (lz-markerArray.markers[j-1].scale.z) / (weight + weight_arr[j-1])
@@ -180,19 +192,19 @@ if __name__ == '__main__':
                                 x = markerArray.markers[j-1].pose.position.x + distx / (weight + weight_arr[j-1])
                                 y = markerArray.markers[j-1].pose.position.y + disty / (weight + weight_arr[j-1])
                                 z = markerArray.markers[j-1].pose.position.z + distz / (weight + weight_arr[j-1])  
-             
+            
                                 weight += weight_arr[j-1] 
 
                                 del weight_arr[j-1]
                                 del markerArray.markers[j-1]
                                 del markerArray_text.markers[j-1]
+                                length_marker = markerArray.markers.__len__()
+                        
 
-                            else: 
+                          
+                                          #print( "markerarray length: " + str(markerArray.markers.__len__()))
 
-                                print("####### with a distance of " + str(dist) + " ...Tried to replace " + current_array.msgs[i].label.name + " with " + markerArray_text.markers[j-1].text)
-                #print( "markerarray length: " + str(markerArray.markers.__len__()))
-
-                if(store  and lx<2 and ly<2 and lz<1.5):
+                if(store  and lx<1.5 and ly<1.5 and lz<1.5 and x!=0 and y!=0):
                     marker.scale.x = lx
                     marker.scale.y = ly 
                     # if(name == 'table' or name == 'diningtable'):
@@ -202,8 +214,6 @@ if __name__ == '__main__':
                     marker.pose.position.x = x
                     marker.pose.position.y = y
                     marker.pose.position.z = z
-
-                    
                     weight_arr.append(1 + weight)
                     marker_text = Marker(
                     type = Marker.TEXT_VIEW_FACING,
@@ -213,7 +223,7 @@ if __name__ == '__main__':
                     scale = Vector3(0.06, 0.06, 0.06),
                     header = Header(frame_id="map"),
                     color = ColorRGBA( marker.color.r, marker.color.g, marker.color.b , 1.0),
-                    text = current_array.msgs[i].label.name)
+                    text = name)
 
                     d = 4
                     t = rospy.Duration(d)
