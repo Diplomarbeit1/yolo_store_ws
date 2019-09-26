@@ -32,7 +32,7 @@ using namespace std;
 using namespace tmc_vision_msgs;
 static int current_ind;
 tf2_ros::Buffer *tfBuffer_pntr;
-int roboter = 0;
+int roboter = 1;
 class PointCloudToImage
 {
 public:
@@ -203,16 +203,17 @@ public:
     float width_standing = (sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0)));
     float height_standing = (top_tf.z - bottom_tf.z);
     
-    if(print)
-    {
-      cout<<"\nwidth: "<<width_standing;
-      cout<<"\nheight: "<<height_standing;
-      cout<<"\n right left x:" << right_tf.x <<" "<< left_tf.x;
-      cout<<"\n right left y:" << right_tf.y <<" "<< left_tf.y;
-      cout<<"\nrest:" << right_tf.z <<" "<< left_tf.z;
-      cout<<"calc" << pow((right_tf.x - left_tf.x),2.0);
-      cout<<"root" << sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0));
-    }
+    // if(print)
+    // {
+    //   cout<<"\nwidth: "<<width_standing;
+    //   cout<<"\nheight: "<<height_standing;
+    //   cout<<"\n right left x:" << right_tf.x <<" "<< left_tf.x;
+    //   cout<<"\n right left y:" << right_tf.y <<" "<< left_tf.y;
+    //   cout<<"\nrest:" << right_tf.z <<" "<< left_tf.z;
+    //   cout<<"calc" << pow((right_tf.x - left_tf.x),2.0);
+    //   cout<<"root" << sqrt(pow((right_tf.x - left_tf.x),2.0) + pow((right_tf.y - left_tf.y),2.0));
+    // }
+
     if(height_standing  > width_standing / 7)
     {
       if(strcmp(det.label.name.c_str() , "table") && strcmp(det.label.name.c_str() , "diningtable"))      center_p.z += sign_(left_p.x - right_p.x)*(divw-1.0)*0.3; 

@@ -29,7 +29,14 @@ import random
 # topic = 'visualization_marker_array'
 # publisher = rospy.Publisher(topic, MarkerArray,queue_size=1)
 
-thresh = 0.4
+max_dist = 0.4      # default max distance between objects
+
+table = 1           #store tables
+grow_sphere = 1.5
+grow_normal = 1.3   #adjusting the size
+d = 2               #duration of marker lifetime
+probboost = 1.4     #boost of probability
+probthresh = 0.3    #threshold of probability 
 
 def visualize():
     rospy.init_node('listener', anonymous=True)
@@ -43,10 +50,11 @@ markerArray_pub = MarkerArray()
 markerArray_text = MarkerArray()
 weight_arr = []
 name_arr = []
-grow_factor = 1.5
 count = 0.0
 cnt = 0.0
-#MARKERS_MAX = 1000
+
+
+
 id = 0
 np.matrix([0])
 i_ = 0 
@@ -75,7 +83,7 @@ if __name__ == '__main__':
         #print("max id:",max_id)
         publisher_id.publish(max_id)
 
-        print("query:"+str((rospy.get_rostime()-now).to_sec()))
+        #print("query:"+str((rospy.get_rostime()-now).to_sec()))
         now = rospy.get_rostime()
 
         #print((mongo_array[1][0].msgs[0]))
@@ -86,78 +94,61 @@ if __name__ == '__main__':
 
             for i in range(current_array.msgs.__len__()):
                 name = str(current_array.msgs[i].label.name)
-                print("storing: " + name +" "+ str(i)+"/"+str(current_array.msgs.__len__()))
+                print("   visualize marker: " + name +" "+ str(i+1)+"/"+str(current_array.msgs.__len__()))
                 store = 1
                 #rospy.sleep(3)
 
-                if(name == 'person' or name == 'toilet' or name == 'chair'):
-                    store = 0
-                if(i <= 0): 
-                    ad = 0.01 
-                else: 
-                    ad = 0
+                if(name=='cake' or name == 'person' or name == 'toilet' or name == 'chair' 
+                or current_array.msgs[i].x==0 or current_array.msgs[i].lx==0 
+                or current_array.msgs[i].label.confidence <probthresh):
+                    store = 0                                               #these objects are not stored
                 
                 marker = Marker()
                 marker.header.frame_id = "map"
                 marker.type = marker.CUBE
+
                 marker.action = marker.ADD
-                #print(int(round(i/z))*10)
-                if(current_array.msgs[i].x==0 or current_array.msgs[i].lx==0):
-                    print("######UUUPS")
-                    store = 0
-                
+                if(name=="apple" or name=="orange" or name=="mouse" or name=="sports ball" ):
+                    grow_factor = grow_sphere
+                else:
+                    grow_factor = grow_normal
+
                 lx = current_array.msgs[i].lx * grow_factor 
                 ly = current_array.msgs[i].ly * grow_factor 
-                lz = current_array.msgs[i].lz * grow_factor *0.9 
-                #marker.scale.y = current_array.msgs[i].ly + ad
-                #marker.scale.z = current_array.msgs[i].lz + ad
-                marker.color.a = current_array.msgs[i].label.confidence
-                marker.color.r = random.random()
-                marker.color.g = random.random()
-                marker.color.b = random.random()
-                marker.pose.orientation.w = 1.0
+                lz = current_array.msgs[i].lz * grow_factor * 0.8
+
+                
+                marker.color.r = 0#random.random()
+                marker.color.g = 1#random.random()
+                marker.color.b = 0#random.random()
+                marker.pose.orientation.w = 1
+
                 x = current_array.msgs[i].x
                 y = current_array.msgs[i].y
                 z = current_array.msgs[i].z   
-                if((z-lz/2)<0):
-                    lz = lz*0.8
+
+                if((z-lz/2)<0):                 
+                    lz = lz*0.8                     #object is under z=0
                     z = lz/2
-                    #print("negative floor")
-                    #rospy.sleep(4)
                     
-                if((name == 'table' or name == 'diningtable' or name == 'chair' or name == 'sofa') and marker.scale.z < 0.1): 
-                    # marker1 = Marker()
-                    # marker1.header.frame_id = "map"
-                    # marker1.type = marker.CUBE
-                    # marker1.action = marker.ADD
-                    # marker1.scale.x = lx
-                    # marker1.scale.y = ly 
-                    # marker1.scale.z = lz
-                    # marker1.pose.position.x = x
-                    # marker1.pose.position.y = y
-                    # marker1.pose.position.z = z
-                    # marker1.color.a = current_array.msgs[i].label.confidence
-                    # marker1.color.r = random.random()
-                    # marker1.color.g = random.random()
-                    # marker1.color.b = random.random()
-                    # marker1.pose.orientation.w = 1.0
-                    lx = lx/grow_factor
-                    ly = ly/grow_factor
-                    lz = lz/grow_factor
-                    #publisher_1mark.publish(marker1)
-                    
-                    height = z
-                    lz = height * 0.8
-                    z = height/2
-                    #marker1.pose.position.z
-                    #marker1.scale.z = lz
-                    #publisher_1mark.publish(marker1)
-                    
-                    #print("table")
-                    #rospy.sleep(1)     
+                if((name == 'table' or name == 'diningtable' or name == 'sofa') and marker.scale.z < 0.1): 
+                    # lx = lx/grow_factor
+                    # ly = ly/grow_factor
+                    # lz = lz/grow_factor
+       
+                    height = z 
+                    lz = height * 0.9                #object was detected as dz~=0 area and table/diningtable/sofa/chair
+                    z = height/2                    #therfore it should reach bottom
+                    probboost = 0.8
+                    store = table
+
+                prob = current_array.msgs[i].label.confidence *probboost
+                if(prob>0.9): prob = 0.9
+                marker.color.a = current_array.msgs[i].label.confidence
                 
                 weight = 1
                 length_marker = markerArray.markers.__len__()
+
                 if(length_marker > 0 and store and lx>0):
 
                     j = 0
@@ -168,53 +159,69 @@ if __name__ == '__main__':
                         distz = z-markerArray.markers[j-1].pose.position.z
 
                         dist = math.sqrt(math.pow((distx),2) + math.pow((disty),2) + math.pow((distz),2))
-                        thresh_ = thresh
-                        if(thresh_>lx/2): thresh_ = lx/2
-                        print("thresh"+str(thresh_))
-                        if(thresh_>markerArray.markers[j-1].scale.x/2): thresh_ = markerArray.markers[j-1].scale.x/2
+
+                        thresh_ = max_dist
+                        if(thresh_>lx/2): thresh_ = lx/2                                                               #only search within object area 
+                        if(thresh_>markerArray.markers[j-1].scale.x/2): thresh_ = markerArray.markers[j-1].scale.x/2   #within the bigger object area of the 2 objects
                         
                         if((dist <= thresh_) and lx<1.5 and ly<1.5 and lz<1.5):
-                            if(1):#name ==  str(markerArray_text.markers[j-1].text)): # current_array.msgs[i].label.name ==  markerArray_text.markers[j-1].text):
-                                
-                                name_o = name
-                                name_n = markerArray_text.markers[j-1].text
-                                if(name_o=="orange" or name_n=="orange"):
-                                    name_o="orange"
-                                if(name_o=="mouse" or name_n=="mouse"): 
-                                    name_o="mouse"
-                                name=name_o
-                                print("##DIST " + str(dist) + " replacing " + name_n + " with " + name_o)
+                            name_o = name
+                            name_n = markerArray_text.markers[j-1].text
+                            if(name_o=="orange" or name_n=="orange"):
+                                name_o="orange"
+                            if(name_o=="mouse" or name_n=="mouse"): 
+                                name_o="mouse"
+                            name=name_o
+  
+                            lx = markerArray.markers[j-1].scale.x + (lx-markerArray.markers[j-1].scale.x) / (weight + weight_arr[j-1])
+                            ly = markerArray.markers[j-1].scale.y + (ly-markerArray.markers[j-1].scale.y) / (weight + weight_arr[j-1])
+                            lz = markerArray.markers[j-1].scale.z + (lz-markerArray.markers[j-1].scale.z) / (weight + weight_arr[j-1])
+                            
+                            x = markerArray.markers[j-1].pose.position.x + distx / (weight + weight_arr[j-1])
+                            y = markerArray.markers[j-1].pose.position.y + disty / (weight + weight_arr[j-1])
+                            z = markerArray.markers[j-1].pose.position.z + distz / (weight + weight_arr[j-1])  
 
-                                lx = markerArray.markers[j-1].scale.x + (lx-markerArray.markers[j-1].scale.x) / (weight + weight_arr[j-1])
-                                ly = markerArray.markers[j-1].scale.y + (ly-markerArray.markers[j-1].scale.y) / (weight + weight_arr[j-1])
-                                lz = markerArray.markers[j-1].scale.z + (lz-markerArray.markers[j-1].scale.z) / (weight + weight_arr[j-1])
-                                
-                                x = markerArray.markers[j-1].pose.position.x + distx / (weight + weight_arr[j-1])
-                                y = markerArray.markers[j-1].pose.position.y + disty / (weight + weight_arr[j-1])
-                                z = markerArray.markers[j-1].pose.position.z + distz / (weight + weight_arr[j-1])  
-            
-                                weight += weight_arr[j-1] 
+                            weight += weight_arr[j-1] 
 
-                                del weight_arr[j-1]
-                                del markerArray.markers[j-1]
-                                del markerArray_text.markers[j-1]
-                                length_marker = markerArray.markers.__len__()
+                            del weight_arr[j-1]
+                            del markerArray.markers[j-1]
+                            del markerArray_text.markers[j-1]
+
+                            length_marker = markerArray.markers.__len__()
                         
-
-                          
-                                          #print( "markerarray length: " + str(markerArray.markers.__len__()))
-
                 if(store  and lx<1.5 and ly<1.5 and lz<1.5 and x!=0 and y!=0):
+
+                    if(name=="apple" or name=="orange" or name=="mouse" or name=="sports ball" ):
+                        marker.type = marker.SPHERE
+                        marker.color.r = 1
+                        marker.color.g = 0
+                        marker.color.b = 0
+                    if(name=="cup" or name=="bottle" or name=="vase" or name=="pottedplant"):
+                        marker.type = marker.CYLINDER
+                        marker.color.r = 0
+                        marker.color.g = 0
+                        marker.color.b = 1
+                    if(marker.type==2):
+                        lz = lx
+                    if(name=="apple"):
+                        marker.color.r = 1
+                        marker.color.g = 0
+                        marker.color.b = 0
+                    if(name=="orange"):
+                        marker.color.r = 1
+                        marker.color.g = 0.5
+                        marker.color.b = 0
+
                     marker.scale.x = lx
-                    marker.scale.y = ly 
-                    # if(name == 'table' or name == 'diningtable'):
-                    #     lz = lz - lz*0.4/weight
+                    marker.scale.y = ly
                     marker.scale.z = lz
 
                     marker.pose.position.x = x
                     marker.pose.position.y = y
                     marker.pose.position.z = z
+
                     weight_arr.append(1 + weight)
+
                     marker_text = Marker(
                     type = Marker.TEXT_VIEW_FACING,
                     id = 0,
@@ -222,32 +229,27 @@ if __name__ == '__main__':
                     Quaternion(0, 0, 0, 1)),
                     scale = Vector3(0.06, 0.06, 0.06),
                     header = Header(frame_id="map"),
-                    color = ColorRGBA( marker.color.r, marker.color.g, marker.color.b , 1.0),
+                    color = ColorRGBA(marker.color.r, marker.color.g, marker.color.b ,1.0),
                     text = name)
 
-                    d = 4
+
                     t = rospy.Duration(d)
                     marker.lifetime = t
                     marker_text.lifetime = t
                     
-                    #print i_ 
                     marker.id = i_
-                    
                     markerArray.markers.append(marker)
-                    #for m in markerArray.markers:
-                    
                     marker_text.id = i_
                     markerArray_text.markers.append(marker_text)
-                    #for m in markerArray_text.markers:
+
                     i_ += 1
-                    # if(str(current_array.msgs[i].label.name) == "person"):
-                    #     del weight_arr[markerArray.markers.__len__()-1]
-                    #     del markerArray.markers[markerArray.markers.__len__()-1]
-                    #     del markerArray_text.markers[markerArray.markers.__len__()-1]
-                    #print i_
-                    #print j_
+
+                else: 
+                    print("         "+str(name)+" was not stored")
+                    del marker
                 # else: 
                 #     print("###THIS IS NOT RIGHT: PERSON OR TOILET")
+            
 
             #markerArray_pub.markers = markerArray.markers[0:(markerArray.markers.__len__()-2)]
             #print(markerArray.markers.__len__())
@@ -255,8 +257,8 @@ if __name__ == '__main__':
             
             publisher_text.publish(markerArray_text)
             #rospy.sleep(d)
-            print("for loop:"+str((rospy.get_rostime()-now).to_sec()))
-            print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
+            #print("for loop:"+str((rospy.get_rostime()-now).to_sec()))
+            #print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
             id += 1
             #rospy.sleep(5)
 
@@ -268,7 +270,7 @@ if __name__ == '__main__':
             publisher_mark.publish(markerArray)
             #publisher_mark.publish(markerArray)
             publisher_text.publish(markerArray_text)
-            print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
+            #print("whole process:"+str((rospy.get_rostime()-start).to_sec()))
 
 
 
